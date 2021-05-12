@@ -62,50 +62,6 @@ impl Token {
         }
     }
 
-    /// this is to simplify testing this function creates a list of tokens
-    /// it automatically figures out the line number and length
-    ///
-    /// ## Arguments
-    ///
-    /// * `vec2d` - vec of vecs that contain token type new vec is a new line
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// let mut lexer = Lexer::new(vec!["pin in = 2;", "", "&1010 // comment"]);
-    /// let input = lexer.lex();
-    ///
-    /// let output = Token::vec(vec![
-    ///     vec![
-    ///         TokenType::Pin,
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Identifier {
-    ///             name: "in".to_string(),
-    ///         },
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Equals,
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Number { value: 2 },
-    ///         TokenType::Semicolon,
-    ///     ],
-    ///     vec![],
-    ///     vec![
-    ///         TokenType::And,
-    ///         TokenType::BoolTable {
-    ///             table: vec![true, false, true, false],
-    ///         },
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Ignore {
-    ///             comment: Some("// comment".to_string()),
-    ///         },
-    ///     ],
-    /// ]);
-    ///
-    /// assert_eq!(input.len(), output.len());
-    /// for i in 0..input.len() {
-    ///     assert_eq!(input[i], output[i], "token <{}>", i);
-    /// }
-    /// ```
     pub fn vec(vec2d: Vec<Vec<TokenType>>) -> Vec<Self> {
         let mut result = Vec::new();
 
@@ -200,32 +156,10 @@ struct ParsingError {
 }
 
 impl ParsingError {
-    /// creats an error
-    /// in order to execut the error call `err.panic()`
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// let err = LexingError::new(
-    ///     Token {
-    ///         begin_line: 0,
-    ///         begin_char: 0,
-    ///         len_char: 1,
-    ///         len_line: 1,
-    ///         token_type: TokenType::Unknown,
-    ///     },
-    ///     format!("unexpected character <{}>", c),
-    /// );
-    /// ```
     fn new(token: Token, msg: String, data: Vec<String>) -> Self {
         Self { token, msg, data }
     }
 
-    /// panics with the supplied message and gives the line on which the error occurred
-    ///
-    /// ## Examples
-    ///
-    /// `err.panic()` => e.g. `unexpected character <$> at line <1>`
     fn panic(self) {
         panic!("{} at line <{}>", self.msg, self.token.begin_line + 1);
     }

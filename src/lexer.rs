@@ -53,48 +53,6 @@ impl Lexer {
         self.current_char = self.current_line.chars().nth(self.char_index).unwrap();
     }
 
-    /// the main lexer this function lexes everything
-    /// ## Arguments
-    ///
-    /// * `input` - is a the sorce code (as `Vec<&str>`)
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// let mut lexer = Lexer::new(vec!["pin in = 2;", "", "&1010 // comment"]);
-    /// let input = lexer.lex();
-    ///
-    /// let output = Token::vec(vec![
-    ///     vec![
-    ///         TokenType::Pin,
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Identifier {
-    ///             name: "in".to_string(),
-    ///         },
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Equals,
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Number { value: 2 },
-    ///         TokenType::Semicolon,
-    ///     ],
-    ///     vec![],
-    ///     vec![
-    ///         TokenType::And,
-    ///         TokenType::BoolTable {
-    ///             table: vec![true, false, true, false],
-    ///         },
-    ///         TokenType::Ignore { comment: None },
-    ///         TokenType::Ignore {
-    ///             comment: Some("// comment".to_string()),
-    ///         },
-    ///     ],
-    /// ]);
-    ///
-    /// assert_eq!(input.len(), output.len());
-    /// for i in 0..input.len() {
-    ///     assert_eq!(input[i], output[i], "token <{}>", i);
-    /// }
-    /// ```
     pub fn lex(&mut self) -> Vec<Token> {
         while !self.eof {
             if self.lex_char() {
