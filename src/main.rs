@@ -161,11 +161,16 @@ impl ParsingError {
     }
 
     fn panic(self) {
-        panic!("{} at line <{}>", self.msg, self.token.begin_line + 1);
+        panic!(
+            "{} at line <{}> at index <{}>",
+            self.msg,
+            self.token.begin_line + 1,
+            self.token.begin_char
+        );
     }
 }
 
-// mod lexer;
+mod lexer;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,4 +179,8 @@ mod tests {
     fn test() {
         assert_eq!(3, 3);
     }
+}
+
+fn main() {
+    print!("Hello World");
 }

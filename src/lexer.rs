@@ -41,11 +41,14 @@ impl Lexer {
                 self.line_index += 1;
                 self.char_index = 0;
                 self.current_line = self.data[self.line_index].clone();
+                self.current_char = self.current_line.chars().nth(0).unwrap();
+                // if empty line
+                self.eol = self.current_line.len() == 1;
             }
             return;
         }
 
-        if self.current_line.len() - 2 >= self.char_index {
+        if self.current_line.len() - 2 == self.char_index {
             self.eol = true;
         }
 
@@ -58,15 +61,19 @@ impl Lexer {
             if self.lex_char() {
                 continue;
             }
+
             if self.lex_num() {
                 continue;
             }
-            if self.lex_arrow() {
-                continue;
-            }
+
             if self.lex_identifier() {
                 continue;
             }
+
+            if self.lex_arrow() {
+                continue;
+            }
+
             if self.lex_comment() {
                 continue;
             }
@@ -101,7 +108,7 @@ impl Lexer {
         comment.push(self.current_char);
         self.next();
 
-        if !self.eol {
+        if !self.eof {
             match self.current_char {
                 '*' => is_multiline = true,
                 '/' => is_multiline = false,
@@ -140,6 +147,7 @@ impl Lexer {
             unreachable!();
         }
         comment.push(self.current_char);
+        self.next();
 
         if is_multiline {
             let mut last_star = false;
@@ -147,10 +155,11 @@ impl Lexer {
                 if !self.eof {
                     if self.current_char == '/' && last_star {
                         comment.push(self.current_char);
+                        self.next();
                         break;
                     }
 
-                    last_star = self.current_char == '*' && !self.eol;
+                    last_star = self.current_char == '*';
                     comment.push(self.current_char);
                     self.next();
                 } else {
@@ -205,7 +214,7 @@ impl Lexer {
                 || self.current_char == '_'
             {
                 name.push(self.current_char);
-                self.next()
+                self.next();
             } else {
                 break;
             }
@@ -262,7 +271,7 @@ impl Lexer {
                 unreachable!();
             }
         } else {
-            true
+            false
         }
     }
 
@@ -276,9 +285,14 @@ impl Lexer {
         let mut num_chars = String::new();
         let begin_0 = first_char == '0';
         let mut is_bool = first_char == '0' || first_char == '1';
+        num_chars.push(first_char);
         self.next();
 
         loop {
+            if self.eol {
+                break;
+            }
+
             if Self::is_digit(self.current_char) {
                 if !(self.current_char == '1' || self.current_char == '0') {
                     if begin_0 {
@@ -318,6 +332,7 @@ impl Lexer {
                     table: num_chars.chars().map(|c| c == '1').collect(),
                 },
             });
+
             true
         } else {
             let mut num_str = String::new();
@@ -353,6 +368,7 @@ impl Lexer {
                     value: num_str.parse().unwrap(),
                 },
             });
+
             true
         }
     }
@@ -421,19 +437,129 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
+    fn test_num() {
+        let mut lexer = Lexer::new(vec!["123 010", "102 2 349645", "1 0 101 11"]);
+        let input = lexer.lex();
+
+        let output = Token::vec(vec![
+            vec![
+                TokenType::Number { value: 123 },
+                TokenType::Ignore { comment: None },
+                TokenType::BoolTable {
+                    table: vec![false, true, false],
+                },
+                TokenType::Ignore { comment: None },
+            ],
+            vec![
+                TokenType::Number { value: 102 },
+                TokenType::Ignore { comment: None },
+                TokenType::Number { value: 2 },
+                TokenType::Ignore { comment: None },
+                TokenType::Number { value: 349645 },
+                TokenType::Ignore { comment: None },
+            ],
+            vec![
+                TokenType::BoolTable { table: vec![true] },
+                TokenType::Ignore { comment: None },
+                TokenType::BoolTable { table: vec![false] },
+                TokenType::Ignore { comment: None },
+                TokenType::BoolTable {
+                    table: vec![true, false, true],
+                },
+                TokenType::Ignore { comment: None },
+                TokenType::BoolTable {
+                    table: vec![true, true],
+                },
+                TokenType::Ignore { comment: None },
+            ],
+        ]);
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at token <{}>", i);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_num() {
+        let mut lexer = Lexer::new(vec!["0103"]);
+        let _ = lexer.lex();
+    }
+
+    #[test]
+    fn lexer_next() {
+        let input = vec![
+            "this is line one",
+            "abc",
+            "",
+            "empty",
+            "123 010",
+            "102 2 349645",
+        ];
+        let mut lexer = Lexer::new(input.clone());
+        let data: Vec<String> = input.iter().map(|&s| format!("{}\n", s)).collect();
+
+        for (index, str_in) in data.iter().enumerate() {
+            assert_eq!(index, lexer.line_index, "line_index");
+            assert_eq!(str_in, &lexer.current_line);
+
+            assert_eq!(false, lexer.eof, "not end eof");
+
+            for (i, c) in str_in.chars().enumerate() {
+                assert_eq!(i, lexer.char_index);
+                assert_eq!(
+                    c, lexer.current_char,
+                    "line index {} char index {}",
+                    index, i
+                );
+
+                if i == str_in.len() - 1 {
+                    assert_eq!(
+                        true,
+                        lexer.eol,
+                        "is eol at line {} len{}",
+                        index,
+                        str_in.len()
+                    );
+                }
+
+                lexer.next();
+            }
+        }
+        assert_eq!(true, lexer.eof);
+    }
+
+    #[test]
+
     fn chars() {
-        let mut lexer = Lexer::new(vec!["&|", "^^!&", "([", "{ ; }])", ".,==.,"]);
+        let mut lexer = Lexer::new(vec![
+            format!("{}{}", AND, OR).as_ref(),
+            format!("{}{}{}{}", XOR, XOR, NOT, AND).as_ref(),
+            "([",
+            "{ ; }])",
+            ".,==.,",
+        ]);
+
         let input = lexer.lex();
         let output = Token::vec(vec![
-            vec![TokenType::And, TokenType::Or],
+            vec![
+                TokenType::And,
+                TokenType::Or,
+                TokenType::Ignore { comment: None },
+            ],
             vec![
                 TokenType::Xor,
                 TokenType::Xor,
                 TokenType::Not,
                 TokenType::And,
+                TokenType::Ignore { comment: None },
             ],
-            vec![TokenType::RoundOpen, TokenType::SquareOpen],
+            vec![
+                TokenType::RoundOpen,
+                TokenType::SquareOpen,
+                TokenType::Ignore { comment: None },
+            ],
             vec![
                 TokenType::CurlyOpen,
                 TokenType::Ignore { comment: None },
@@ -442,6 +568,7 @@ mod tests {
                 TokenType::CurlyClose,
                 TokenType::SquareClose,
                 TokenType::RoundClose,
+                TokenType::Ignore { comment: None },
             ],
             vec![
                 TokenType::Dot,
@@ -450,18 +577,128 @@ mod tests {
                 TokenType::Equals,
                 TokenType::Dot,
                 TokenType::Comma,
+                TokenType::Ignore { comment: None },
             ],
         ]);
 
-        //assert_eq!(input.len(), output.len());
+        assert_eq!(
+            input.len(),
+            output.len(),
+            "input output length dose not match"
+        );
         for i in 0..input.len() {
             assert_eq!(input[i], output[i], "at token <{}>", i);
         }
     }
 
     #[test]
-    #[ignore]
-    fn comments() {
+    fn doc_example() {
+        let mut lexer = Lexer::new(vec![
+            "pin in = 2;",
+            "",
+            format!("{}1010 // comment", AND).as_ref(),
+        ]);
+        let input = lexer.lex();
+
+        let output = Token::vec(vec![
+            vec![
+                TokenType::Pin,
+                TokenType::Ignore { comment: None },
+                TokenType::Identifier {
+                    name: "in".to_string(),
+                },
+                TokenType::Ignore { comment: None },
+                TokenType::Equals,
+                TokenType::Ignore { comment: None },
+                TokenType::Number { value: 2 },
+                TokenType::Semicolon,
+                TokenType::Ignore { comment: None },
+            ],
+            vec![TokenType::Ignore { comment: None }],
+            vec![
+                TokenType::And,
+                TokenType::BoolTable {
+                    table: vec![true, false, true, false],
+                },
+                TokenType::Ignore { comment: None },
+                TokenType::Ignore {
+                    comment: Some("// comment".to_string()),
+                },
+                TokenType::Ignore { comment: None },
+            ],
+        ]);
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at token <{}>", i);
+        }
+    }
+
+    #[test]
+    fn test_arrow() {
+        let mut lexer = Lexer::new(vec![" ->"]);
+        let input = lexer.lex();
+
+        let output = Token::vec(vec![vec![
+            TokenType::Ignore { comment: None },
+            TokenType::Arrow,
+            TokenType::Ignore { comment: None },
+        ]]);
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at token <{}>", i);
+        }
+    }
+
+    #[test]
+    fn test_identifier() {
+        let mut lexer = Lexer::new(vec!["ab ab3", "c_f_g ", "pin table fill.count", "pin1"]);
+        let input = lexer.lex();
+
+        let output = Token::vec(vec![
+            vec![
+                TokenType::Identifier {
+                    name: "ab".to_string(),
+                },
+                TokenType::Ignore { comment: None },
+                TokenType::Identifier {
+                    name: "ab3".to_string(),
+                },
+                TokenType::Ignore { comment: None },
+            ],
+            vec![
+                TokenType::Identifier {
+                    name: "c_f_g".to_string(),
+                },
+                TokenType::Ignore { comment: None },
+                TokenType::Ignore { comment: None },
+            ],
+            vec![
+                TokenType::Pin,
+                TokenType::Ignore { comment: None },
+                TokenType::Table,
+                TokenType::Ignore { comment: None },
+                TokenType::Fill,
+                TokenType::Dot,
+                TokenType::Count,
+                TokenType::Ignore { comment: None },
+            ],
+            vec![
+                TokenType::Identifier {
+                    name: "pin1".to_string(),
+                },
+                TokenType::Ignore { comment: None },
+            ],
+        ]);
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at token <{}>", i);
+        }
+    }
+    #[test]
+    fn test_comments() {
         let mut lexer = Lexer::new(vec![
             "// one line comment",
             "",
@@ -482,122 +719,43 @@ mod tests {
                 comment: Some("// one line comment".to_string()),
             },
         });
+        output.push(Token {
+            begin_line: 0,
+            begin_char: "// one line comment".len(),
+            len_char: 1,
+            len_line: 1,
+            token_type: TokenType::Ignore { comment: None },
+        });
+
+        output.push(Token {
+            begin_line: 1,
+            begin_char: 0,
+            len_char: 1,
+            len_line: 1,
+            token_type: TokenType::Ignore { comment: None },
+        });
 
         output.push(Token {
             begin_line: 2,
             begin_char: 0,
-            len_char: "/*multi line comment*/".len(),
+            len_char: "/*\nmulti line comment\n*/".len(),
             len_line: 3,
             token_type: TokenType::Ignore {
-                comment: Some("/*multi line comment*/".to_string()),
+                comment: Some("/*\nmulti line comment\n*/".to_string()),
             },
+        });
+
+        output.push(Token {
+            begin_line: 4,
+            begin_char: 2,
+            len_char: 1,
+            len_line: 1,
+            token_type: TokenType::Ignore { comment: None },
         });
 
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
             assert_eq!(input[i], output[i]);
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn doc_example() {
-        let mut lexer = Lexer::new(vec!["pin in = 2;", "", "&1010 // comment"]);
-        let input = lexer.lex();
-
-        let output = Token::vec(vec![
-            vec![
-                TokenType::Pin,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "in".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Equals,
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
-                TokenType::Semicolon,
-            ],
-            vec![],
-            vec![
-                TokenType::And,
-                TokenType::BoolTable {
-                    table: vec![true, false, true, false],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Ignore {
-                    comment: Some("// comment".to_string()),
-                },
-            ],
-        ]);
-
-        assert_eq!(input.len(), output.len());
-        for i in 0..input.len() {
-            assert_eq!(input[i], output[i], "at token <{}>", i);
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn other() {
-        let mut lexer = Lexer::new(vec![
-            "123 010",
-            "102 2 349645",
-            "ab ab3",
-            "c_f_g ->",
-            "1010",
-            "pin table fill.count",
-        ]);
-        let input = lexer.lex();
-
-        let output = Token::vec(vec![
-            vec![
-                TokenType::Number { value: 123 },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![false, true, false],
-                },
-            ],
-            vec![
-                TokenType::Number { value: 102 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 349645 },
-            ],
-            vec![
-                TokenType::Identifier {
-                    name: "ab".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "ab3".to_string(),
-                },
-            ],
-            vec![
-                TokenType::Identifier {
-                    name: "c_f_g".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Arrow,
-            ],
-            vec![TokenType::BoolTable {
-                table: vec![true, false, true, false],
-            }],
-            vec![
-                TokenType::Pin,
-                TokenType::Ignore { comment: None },
-                TokenType::Table,
-                TokenType::Ignore { comment: None },
-                TokenType::Fill,
-                TokenType::Dot,
-                TokenType::Count,
-            ],
-        ]);
-
-        assert_eq!(input.len(), output.len());
-        for i in 0..input.len() {
-            assert_eq!(input[i], output[i], "at token <{}>", i);
         }
     }
 }
