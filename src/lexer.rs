@@ -1,6 +1,6 @@
 use super::*;
 
-struct Lexer {
+pub struct Lexer {
     data: Vec<String>,
     line_index: usize,
     char_index: usize,
@@ -78,7 +78,7 @@ impl Lexer {
                 continue;
             }
 
-            let err = ParsingError::new(
+            let err = ParsingError::from_token(
                 Token {
                     begin_line: self.line_index,
                     begin_char: self.char_index,
@@ -100,7 +100,7 @@ impl Lexer {
             return false;
         }
 
-        let mut is_multiline = false;
+        let is_multiline;
         let begin_line = self.line_index;
         let begin_char = self.char_index;
         let mut comment = String::new();
@@ -113,7 +113,7 @@ impl Lexer {
                 '*' => is_multiline = true,
                 '/' => is_multiline = false,
                 _ => {
-                    let err = ParsingError::new(
+                    let err = ParsingError::from_token(
                         Token {
                             begin_line: self.line_index,
                             begin_char: self.char_index,
@@ -132,7 +132,7 @@ impl Lexer {
                 }
             };
         } else {
-            let err = ParsingError::new(
+            let err = ParsingError::from_token(
                 Token {
                     begin_line: self.line_index,
                     begin_char: self.char_index,
@@ -163,7 +163,7 @@ impl Lexer {
                     comment.push(self.current_char);
                     self.next();
                 } else {
-                    let err = ParsingError::new(
+                    let err = ParsingError::from_token(
                         Token {
                             begin_line: self.line_index,
                             begin_char: self.char_index,
@@ -225,6 +225,7 @@ impl Lexer {
             "table" => TokenType::Table,
             "count" => TokenType::Count,
             "fill" => TokenType::Fill,
+            "dff" => TokenType::Dff,
             _ => TokenType::Identifier { name: name.clone() },
         };
 
@@ -253,7 +254,7 @@ impl Lexer {
                 self.next();
                 true
             } else {
-                let err = ParsingError::new(
+                let err = ParsingError::from_token(
                     Token {
                         begin_line: self.line_index,
                         begin_char: self.char_index,
@@ -296,7 +297,7 @@ impl Lexer {
             if Self::is_digit(self.current_char) {
                 if !(self.current_char == '1' || self.current_char == '0') {
                     if begin_0 {
-                        let err = ParsingError::new(
+                        let err = ParsingError::from_token(
                             Token {
                                 begin_char,
                                 begin_line: self.line_index,
@@ -341,7 +342,7 @@ impl Lexer {
             let result: Result<isize, _> = num_str.parse();
 
             if result.is_err() {
-                let err = ParsingError::new(
+                let err = ParsingError::from_token(
                     Token {
                         begin_char,
                         begin_line: self.line_index,
@@ -432,6 +433,7 @@ impl Lexer {
         return false;
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -531,7 +533,6 @@ mod tests {
     }
 
     #[test]
-
     fn chars() {
         let mut lexer = Lexer::new(vec![
             format!("{}{}", AND, OR).as_ref(),
@@ -653,7 +654,13 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        let mut lexer = Lexer::new(vec!["ab ab3", "c_f_g ", "pin table fill.count", "pin1"]);
+        let mut lexer = Lexer::new(vec![
+            "ab ab3",
+            "c_f_g ",
+            "pin table fill.count",
+            "pin1",
+            "dff",
+        ]);
         let input = lexer.lex();
 
         let output = Token::vec(vec![
@@ -690,6 +697,7 @@ mod tests {
                 },
                 TokenType::Ignore { comment: None },
             ],
+            vec![TokenType::Dff, TokenType::Ignore { comment: None }],
         ]);
 
         assert_eq!(input.len(), output.len());
@@ -759,63 +767,3 @@ mod tests {
         }
     }
 }
-
-/*
-pin 13 = i0;
-pin 11 = i1;
-pin 17 = and;
-pin 18 = or;
-pin 19 = xor;
-
-table(i0, i1 -> and) {
-    00 0
-    01 0
-    10 0
-    11 1
-}
-
-table(i0, i1 -> xor ).count {
-    0
-    1
-    1
-    0
-}
-
-table(i0, i1 -> or).fill(1) {
-    00 0
-    01 1
-    10 1
-}
-
-pin 23 = a;
-pin 3 = b;
-pin 2 = c;
-
-a = (!b | (c));
-a.dff;
-
-*/
-
-/*
-pin 1, 2 = i[0..1];
-pin [13..18] = and, or, xor, not;
-table(i0, i1 -> and).fill(0) {
-    11 1
-}
-
-table(i0, i1 -> or).fill(1) {
-    00 0
-}
-
-table(i0, i1 -> xor ).count {
-    0
-    1
-    1
-    0
-}
-
-table(i0 -> not) {
-    01
-    10
-}
-*/
