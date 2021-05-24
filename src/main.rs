@@ -381,8 +381,6 @@ mod tests {
 }
 
 fn main() {
-    syntax_analyser::test();
-    /*
     let data = vec!["pin 1 = a;"];
     let mut lexer = lexer::Lexer::new(data.clone());
     let tokens = lexer.lex();
@@ -397,5 +395,4 @@ fn main() {
     let sentences = syntax_analyser.analys();
 
     print!("{:?}", sentences);
-    */
 }

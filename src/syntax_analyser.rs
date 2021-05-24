@@ -1,36 +1,5 @@
 use super::*;
 
-pub fn test() {
-    let data = vec!["pin 3 = a;\n".to_string()];
-    let tokens = Token::vec(vec![vec![
-        TokenType::Pin,
-        TokenType::Ignore { comment: None },
-        TokenType::Number { value: 3 },
-        TokenType::Ignore { comment: None },
-        TokenType::Identifier {
-            name: "a".to_string(),
-        },
-        TokenType::Semicolon,
-        TokenType::Ignore { comment: None },
-    ]]);
-
-    let mut syntax_analyser = SyntaxAnalyser::new(data, tokens.clone());
-    let input = syntax_analyser.analys();
-    assert_eq!(input.len(), 1);
-    assert_eq!(
-        input[0],
-        Sentence::new(
-            &tokens,
-            0,
-            6,
-            SentenceType::Pin {
-                pins: vec![3],
-                names: vec!["a".to_string()]
-            },
-        )
-    );
-}
-
 pub struct SyntaxAnalyser {
     data: Vec<String>,
     tokens: Vec<Token>,
@@ -260,7 +229,6 @@ impl SyntaxAnalyser {
         let names;
         if NUM_FIRST {
             pins = self.parse_num();
-            println!("{:?}", self.current());
             self.expect(TokenType::Equals);
 
             names = self.parse_identifiers();
@@ -272,7 +240,7 @@ impl SyntaxAnalyser {
 
         self.expect(TokenType::Semicolon);
 
-        let len_token = begin_token - self.index;
+        let len_token = self.index - begin_token;
         let tokens = &self.tokens;
         let sentence_type = SentenceType::Pin { names, pins };
 
@@ -320,7 +288,7 @@ impl SyntaxAnalyser {
         let table = self.pars_table();
         self.expect(TokenType::CurlyClose);
 
-        let len_token = begin_token - self.index;
+        let len_token = self.index - begin_token;
         let tokens = &self.tokens;
         let sentence_type = SentenceType::Table {
             in_names,
@@ -737,6 +705,39 @@ mod tests {
     }
 
     #[test]
+    fn test_pin() {
+        let data = vec!["pin 3 = a;\n".to_string()];
+        let tokens = Token::vec(vec![vec![
+            TokenType::Pin,
+            TokenType::Ignore { comment: None },
+            TokenType::Number { value: 3 },
+            TokenType::Ignore { comment: None },
+            TokenType::Equals,
+            TokenType::Ignore { comment: None },
+            TokenType::Identifier {
+                name: "a".to_string(),
+            },
+            TokenType::Semicolon,
+            TokenType::Ignore { comment: None },
+        ]]);
+
+        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens.clone());
+        let input = syntax_analyser.analys();
+        assert_eq!(input.len(), 1);
+        assert_eq!(
+            input[0],
+            Sentence::new(
+                &tokens,
+                0,
+                8,
+                SentenceType::Pin {
+                    pins: vec![3],
+                    names: vec!["a".to_string()]
+                },
+            )
+        );
+    }
+    #[test]
     fn test_table() {
         let data = vec![
             "table(i0, i1 -> and) {",
@@ -760,7 +761,7 @@ mod tests {
                 TokenType::Comma,
                 TokenType::Ignore { comment: None },
                 TokenType::Identifier {
-                    name: "b".to_string(),
+                    name: "i1".to_string(),
                 },
                 TokenType::Ignore { comment: None },
                 TokenType::Arrow,
@@ -837,7 +838,4 @@ mod tests {
             )
         );
     }
-
-    #[test]
-    fn test_pin() {}
 }
