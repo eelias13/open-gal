@@ -82,7 +82,6 @@ impl SyntaxAnalyser {
                     );
                     unreachable!();
                 } else {
-                    self.next();
                     table[0]
                 }
             }
@@ -271,6 +270,7 @@ impl SyntaxAnalyser {
                     self.expect(TokenType::Fill);
                     self.expect(TokenType::RoundOpen);
                     let value = self.parse_bool();
+                    self.next();
                     self.expect(TokenType::RoundClose);
 
                     TableType::Fill { value }
@@ -336,85 +336,79 @@ impl SyntaxAnalyser {
                 len_token,
                 SentenceType::BoolFunc {
                     in_names: names,
-                    rpn_func: func,
+                    func,
                 },
             ));
         }
     }
 
+    // shunting yard
     fn parse_func(&mut self) -> Vec<BoolFunc> {
-        let mut operators = Vec::<TokenType>::new();
-        let mut rpn = Vec::<TokenType>::new();
+        let mut result = Vec::<BoolFunc>::new();
+
+        // increments on '(' and decrements on ')' should never be -1. Exampel: (a) & b ) is invalid
+        let mut count_parentheses = 0;
+        // counts all binary operator (and, or, xor) and cheks if ther are enough identifiers. Exampel: !a & & b is invalid
+        let mut count_binary = 0;
+        // afer an identifier ther must be an operator. Exampel: a a & b is invalid
+        let mut last_identifier = false;
+
+        let mut count_identifier = 0;
 
         while self.current() != TokenType::Semicolon {
             match self.current() {
                 TokenType::Or => {
-                    while match operators.last() {
-                        Some(TokenType::Xor) => true,
-                        Some(TokenType::And) => true,
-                        Some(TokenType::Not) => true,
-                        _ => false,
-                    } {
-                        if let Some(operator) = operators.pop() {
-                            rpn.push(operator);
-                        }
-                    }
-                    operators.push(self.current());
-                    self.next();
+                    result.push(BoolFunc::Or);
+                    count_binary += 1;
+                    last_identifier = false;
                 }
                 TokenType::Xor => {
-                    while match operators.last() {
-                        Some(TokenType::And) => true,
-                        Some(TokenType::Not) => true,
-                        _ => false,
-                    } {
-                        if let Some(operator) = operators.pop() {
-                            rpn.push(operator);
-                        }
-                    }
-                    operators.push(self.current());
-                    self.next();
+                    result.push(BoolFunc::Xor);
+                    count_binary += 1;
+                    last_identifier = false;
                 }
-
                 TokenType::And => {
-                    while match operators.last() {
-                        Some(TokenType::Not) => true,
-                        _ => false,
-                    } {
-                        if let Some(operator) = operators.pop() {
-                            rpn.push(operator);
-                        }
-                    }
-                    operators.push(self.current());
-                    self.next();
+                    result.push(BoolFunc::And);
+                    count_binary += 1;
+                    last_identifier = false;
                 }
                 TokenType::Not => {
-                    operators.push(self.current());
-                    self.next();
+                    result.push(BoolFunc::Not);
                 }
                 TokenType::RoundOpen => {
-                    operators.push(self.current());
-                    self.next();
+                    result.push(BoolFunc::Open);
+                    count_parentheses += 1;
                 }
                 TokenType::RoundClose => {
-                    while operators.last() != Some(&TokenType::RoundOpen) {
-                        if let Some(operator) = operators.pop() {
-                            rpn.push(operator);
-                        } else {
-                            // TODO add error
-                            unreachable!();
-                        }
+                    result.push(BoolFunc::Close);
+                    if count_parentheses == 0 {
+                        // TODO make error
+                        unreachable!();
                     }
-                    operators.pop();
-                    self.next();
+                    count_parentheses -= 1;
                 }
-                TokenType::Identifier { name: _ } => {
-                    rpn.push(self.current());
-                    self.next();
+                TokenType::Identifier { name } => {
+                    result.push(BoolFunc::Var { name });
+                    if last_identifier {
+                        // TODO make error
+                        unreachable!();
+                    }
+                    last_identifier = true;
+                    count_identifier += 1;
                 }
+
                 TokenType::BoolTable { table: _ } => {
-                    rpn.push(self.current());
-                    let _ = self.parse_bool();
+                    if self.parse_bool() {
+                        result.push(BoolFunc::One)
+                    } else {
+                        result.push(BoolFunc::Zero)
+                    }
+                    if last_identifier {
+                        // TODO make error
+                        unreachable!();
+                    }
+                    last_identifier = true;
+                    count_identifier += 1;
                 }
                 _ => {
                     self.expect_multible(vec![
@@ -430,41 +424,16 @@ impl SyntaxAnalyser {
                     unreachable!();
                 }
             }
-        }
-        while let Some(o) = operators.pop() {
-            rpn.push(o);
+            self.next();
         }
 
-        let mut result = Vec::<BoolFunc>::new();
-        for t in rpn {
-            result.push(match t {
-                TokenType::Or => BoolFunc::Or,
-                TokenType::Xor => BoolFunc::Xor,
-                TokenType::And => BoolFunc::And,
-                TokenType::Not => BoolFunc::Not,
-                TokenType::Identifier { name } => BoolFunc::Var { name },
-                TokenType::BoolTable { table } => {
-                    // has only one value this is assured by `let _ = self.parse_bool();` line above
-                    if table[0] {
-                        BoolFunc::One
-                    } else {
-                        BoolFunc::Zero
-                    }
-                }
-                _ => {
-                    self.expect_multible(vec![
-                        TokenType::Or,
-                        TokenType::Xor,
-                        TokenType::And,
-                        TokenType::Not,
-                        TokenType::Identifier {
-                            name: String::new(),
-                        },
-                        TokenType::BoolTable { table: Vec::new() },
-                    ]);
-                    unreachable!();
-                }
-            });
+        if count_binary != count_identifier - 1 {
+            // TODO make error syntaxError(expression.at(expression.size() - 1), Token::Type::identifier);
+            unreachable!();
+        }
+        if count_parentheses != 0 {
+            // TODO make error
+            unreachable!();
         }
         result
     }
@@ -511,31 +480,35 @@ mod tests {
         let mut syntax_analyser = SyntaxAnalyser::new(data, tokens);
 
         let input = syntax_analyser.parse_func();
-        // otuput in reverse polish notation `abcd&c1!^||`
-        let output = vec![
+        // (a|b&d|(c^!1))
+        let output: Vec<BoolFunc> = vec![
+            BoolFunc::Open,
             BoolFunc::Var {
                 name: "a".to_string(),
             },
+            BoolFunc::Or,
             BoolFunc::Var {
                 name: "b".to_string(),
             },
+            BoolFunc::And,
             BoolFunc::Var {
                 name: "d".to_string(),
             },
-            BoolFunc::And,
+            BoolFunc::Or,
+            BoolFunc::Open,
             BoolFunc::Var {
                 name: "c".to_string(),
             },
-            BoolFunc::One,
-            BoolFunc::Not,
             BoolFunc::Xor,
-            BoolFunc::Or,
-            BoolFunc::Or,
+            BoolFunc::Not,
+            BoolFunc::One,
+            BoolFunc::Close,
+            BoolFunc::Close,
         ];
 
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
-            assert_eq!(input[i], output[i]);
+            assert_eq!(input[i], output[i], "at {}", i);
         }
     }
 
@@ -582,14 +555,14 @@ mod tests {
                 10,
                 SentenceType::BoolFunc {
                     in_names: vec!["a".to_string()],
-                    rpn_func: vec![
+                    func: vec![
                         BoolFunc::Var {
                             name: "b".to_string(),
                         },
+                        BoolFunc::And,
                         BoolFunc::Var {
                             name: "c".to_string(),
                         },
-                        BoolFunc::And,
                     ],
                 },
             ),
