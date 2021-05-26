@@ -342,7 +342,6 @@ impl SyntaxAnalyser {
         }
     }
 
-    // shunting yard
     fn parse_func(&mut self) -> Vec<BoolFunc> {
         let mut result = Vec::<BoolFunc>::new();
 

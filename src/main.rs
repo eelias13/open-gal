@@ -6,10 +6,12 @@ const NOT: char = '!';
 // when parsing pin the number comes first
 // e.g. if NUM_FIRST == true `pin 1 = a;` else `pin a = 1;`
 const NUM_FIRST: bool = true;
+const COUNT_VERTICAL: bool = false;
 
 mod function_parser;
 mod lexer;
 mod syntax_analyser;
+mod table_parser;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
