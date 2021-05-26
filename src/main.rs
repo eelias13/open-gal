@@ -7,6 +7,7 @@ const NOT: char = '!';
 // e.g. if NUM_FIRST == true `pin 1 = a;` else `pin a = 1;`
 const NUM_FIRST: bool = true;
 
+mod function_parser;
 mod lexer;
 mod syntax_analyser;
 
@@ -170,7 +171,7 @@ pub enum TableType {
     Count,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub enum BoolFunc {
     And,
     Or,
@@ -179,6 +180,8 @@ pub enum BoolFunc {
     Var { name: String },
     One,
     Zero,
+    Open,
+    Close,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -195,7 +198,7 @@ pub enum SentenceType {
     },
     BoolFunc {
         in_names: Vec<String>,
-        rpn_func: Vec<BoolFunc>, // function is in reverse polish notation
+        func: Vec<BoolFunc>,
     },
     Dff {
         names: Vec<String>,
@@ -296,6 +299,7 @@ impl ParsingError {
     }
 
     fn panic(self) {
+        // TODO show line
         panic!(
             "{} at line <{}> at index <{}>",
             self.msg,
@@ -381,17 +385,11 @@ mod tests {
 }
 
 fn main() {
-    let data = vec!["pin 1 = a;"];
+    let data = vec!["pin 1 = a;\n".to_string()];
     let mut lexer = lexer::Lexer::new(data.clone());
     let tokens = lexer.lex();
 
-    let mut syntax_analyser = syntax_analyser::SyntaxAnalyser::new(
-        data.clone()
-            .iter()
-            .map(|&line| format!("{}\n", line))
-            .collect(),
-        tokens,
-    );
+    let mut syntax_analyser = syntax_analyser::SyntaxAnalyser::new(data.clone(), tokens);
     let sentences = syntax_analyser.analys();
 
     print!("{:?}", sentences);

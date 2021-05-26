@@ -12,9 +12,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(vec: Vec<&str>) -> Self {
-        // TODO: check if vec is empty
-        let data: Vec<String> = vec.iter().map(|&s| format!("{}\n", s)).collect();
+    pub fn new(data: Vec<String>) -> Self {
         Lexer {
             data: data.clone(),
             line_index: 0,
@@ -438,9 +436,13 @@ impl Lexer {
 mod tests {
     use super::*;
 
+    fn convert(vec: Vec<&str>) -> Vec<String> {
+        vec.iter().map(|&s| format!("{}\n", s)).collect()
+    }
+
     #[test]
     fn test_num() {
-        let mut lexer = Lexer::new(vec!["123 010", "102 2 349645", "1 0 101 11"]);
+        let mut lexer = Lexer::new(convert(vec!["123 010", "102 2 349645", "1 0 101 11"]));
         let input = lexer.lex();
 
         let output = Token::vec(vec![
@@ -485,24 +487,23 @@ mod tests {
     #[test]
     #[should_panic]
     fn panic_num() {
-        let mut lexer = Lexer::new(vec!["0103"]);
+        let mut lexer = Lexer::new(convert(vec!["0103"]));
         let _ = lexer.lex();
     }
 
     #[test]
     fn lexer_next() {
-        let input = vec![
+        let input = convert(vec![
             "this is line one",
             "abc",
             "",
             "empty",
             "123 010",
             "102 2 349645",
-        ];
+        ]);
         let mut lexer = Lexer::new(input.clone());
-        let data: Vec<String> = input.iter().map(|&s| format!("{}\n", s)).collect();
 
-        for (index, str_in) in data.iter().enumerate() {
+        for (index, str_in) in input.iter().enumerate() {
             assert_eq!(index, lexer.line_index, "line_index");
             assert_eq!(str_in, &lexer.current_line);
 
@@ -534,13 +535,13 @@ mod tests {
 
     #[test]
     fn chars() {
-        let mut lexer = Lexer::new(vec![
+        let mut lexer = Lexer::new(convert(vec![
             format!("{}{}", AND, OR).as_ref(),
             format!("{}{}{}{}", XOR, XOR, NOT, AND).as_ref(),
             "([",
             "{ ; }])",
             ".,==.,",
-        ]);
+        ]));
 
         let input = lexer.lex();
         let output = Token::vec(vec![
@@ -594,11 +595,11 @@ mod tests {
 
     #[test]
     fn doc_example() {
-        let mut lexer = Lexer::new(vec![
+        let mut lexer = Lexer::new(convert(vec![
             "pin in = 2;",
             "",
             format!("{}1010 // comment", AND).as_ref(),
-        ]);
+        ]));
         let input = lexer.lex();
 
         let output = Token::vec(vec![
@@ -637,7 +638,7 @@ mod tests {
 
     #[test]
     fn test_arrow() {
-        let mut lexer = Lexer::new(vec![" ->"]);
+        let mut lexer = Lexer::new(convert(vec![" ->"]));
         let input = lexer.lex();
 
         let output = Token::vec(vec![vec![
@@ -654,13 +655,13 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        let mut lexer = Lexer::new(vec![
+        let mut lexer = Lexer::new(convert(vec![
             "ab ab3",
             "c_f_g ",
             "pin table fill.count",
             "pin1",
             "dff",
-        ]);
+        ]));
         let input = lexer.lex();
 
         let output = Token::vec(vec![
@@ -707,13 +708,13 @@ mod tests {
     }
     #[test]
     fn test_comments() {
-        let mut lexer = Lexer::new(vec![
+        let mut lexer = Lexer::new(convert(vec![
             "// one line comment",
             "",
             "/*",
             "multi line comment",
             "*/",
-        ]);
+        ]));
         let input = lexer.lex();
 
         let mut output = Vec::<Token>::new();
