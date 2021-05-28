@@ -1,6 +1,6 @@
 const AND: char = '&';
 const OR: char = '|';
-const XOR: char = '^';
+const XOR: char = '?';
 const NOT: char = '!';
 
 // when parsing pin the number comes first
@@ -12,6 +12,9 @@ mod atomizer;
 mod function_parser;
 mod lexer;
 mod table_parser;
+
+use std::usize;
+use std::{collections::HashMap, u32};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
@@ -232,6 +235,25 @@ impl Atom {
     }
 }
 
+/*
+*   This data structure contains following data from processed expressions.
+*
+*   - "m_InputPins" stores all the input pins which are used in the expression
+*   - "m_OutputPin" stores the output pin
+*   - "m_Table" contains the truth table for the expression and is used to generate a dnf expression later on
+*   - "m_EnableDFlipFlop" holds a boolean which decides if the output pin should have its flip flop turned on.
+*/
+
+#[repr(C)]
+#[derive(PartialEq, Debug, Clone)]
+pub struct TableData {
+    input_pins: Vec<u32>,
+    output_pin: u32,
+    table: Vec<bool>,
+    enable_flip_flop: bool,
+}
+
+// --------------------------------------------------- Error ---------------------------------------------------
 struct ParsingError {
     begin_line: usize,
     begin_char: usize,
@@ -306,6 +328,220 @@ impl ParsingError {
     }
 }
 
+// --------------------------------------------------- Parser ---------------------------------------------------
+
+use atomizer::Atomizer;
+use lexer::Lexer;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
+
+pub fn read_file(file: &str) -> Vec<String> {
+    let mut result = Vec::new();
+
+    for (i, line) in read_lines(file)
+        .expect(format!("couldn't open file {}", file).as_str())
+        .enumerate()
+    {
+        result.push(format!(
+            "{}\n",
+            line.expect(format!("couldn't open line {}", i).as_str())
+        ));
+    }
+    result
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+fn parse_func(
+    in_names: Vec<String>,
+    func: Vec<BoolFunc>,
+    pin_map: &mut HashMap<String, u32>,
+    used_pin: &mut Vec<u32>,
+) -> Result<Vec<TableData>, String> {
+    let mut result = Vec::new();
+
+    for output_pin in match get_pins(in_names, pin_map, used_pin) {
+        Ok(pins) => pins,
+        Err(_) => panic!("msg"),
+    } {
+        let table = function_parser::parse(func.clone());
+        let in_names = function_parser::get_names(func.clone());
+
+        result.push(TableData {
+            input_pins: match get_pins(in_names, pin_map, used_pin) {
+                Ok(pins) => pins,
+                Err(_) => panic!("msg"),
+            },
+            output_pin,
+            table,
+            enable_flip_flop: false,
+        });
+    }
+    Ok(result)
+}
+
+fn parse_table(
+    in_names: Vec<String>,
+    out_names: Vec<String>,
+    table: Vec<bool>,
+    table_type: TableType,
+    pin_map: &mut HashMap<String, u32>,
+    used_pin: &mut Vec<u32>,
+) -> Result<Vec<TableData>, String> {
+    let mut result = Vec::new();
+    let table_2d = match table_parser::parse(in_names.len(), out_names.len(), table, table_type) {
+        Ok(t) => t,
+        Err(msg) => panic!("{}", msg),
+    };
+    let output_pins = match get_pins(out_names.clone(), pin_map, used_pin) {
+        Ok(pins) => pins,
+        Err(_) => return Err("pins are not defind".to_string()),
+    };
+
+    if output_pins.len() != table_2d.len() {
+        panic!("msg");
+    }
+
+    for i in 0..table_2d.len() {
+        result.push(TableData {
+            input_pins: match get_pins(in_names.clone(), pin_map, used_pin) {
+                Ok(pins) => pins,
+                Err(_) => panic!("msg"),
+            },
+            output_pin: output_pins[i],
+            table: table_2d[i].clone(),
+            enable_flip_flop: false,
+        });
+    }
+    Ok(result)
+}
+
+fn get_pins(
+    names: Vec<String>,
+    pin_map: &mut HashMap<String, u32>,
+    used_pin: &mut Vec<u32>,
+) -> Result<Vec<u32>, ()> {
+    let mut pins = Vec::new();
+    for name in names {
+        if let Some(&pin) = pin_map.get(&name) {
+            pins.push(pin);
+            let mut is_used = false;
+            for p in used_pin.clone() {
+                if p == pin {
+                    is_used = true;
+                    break;
+                }
+            }
+
+            if !is_used {
+                used_pin.push(pin);
+            }
+        } else {
+            return Err(());
+        }
+    }
+    Ok(pins)
+}
+
+fn set_pins(names: Vec<String>, pins: Vec<u64>, pin_map: &mut HashMap<String, u32>) {
+    if pins.len() != names.len() {
+        // TODO error
+        let _msg = format!(
+            "pin len {} and name len dose not match{}",
+            pins.len(),
+            names.len()
+        );
+        panic!("msg");
+    }
+    for i in 0..pins.len() {
+        // TODO validate pins
+        let mut def_pin = None;
+        for (_, pin) in pin_map.clone() {
+            if pin == pins[i] as u32 {
+                def_pin = Some(pin);
+                break;
+            }
+        }
+        if let Some(pin) = def_pin {
+            //let _msg = format!("name <{}> has been defined previously (with pin <{}>)",);
+            panic!("msg");
+        }
+
+        if let Some(name) = pin_map.insert(names[i].clone(), pins[i] as u32) {
+            // TODO error
+            panic!("msg");
+        }
+    }
+}
+
+pub fn parse(data: Vec<String>) -> Vec<TableData> {
+    let mut result = Vec::new();
+
+    let mut lexer = Lexer::new(data.clone());
+    let tokens = lexer.lex();
+    let mut atomizer = Atomizer::new(data.clone(), tokens);
+    let atoms = atomizer.atomize();
+
+    let mut pin_map: HashMap<String, u32> = HashMap::new();
+    let mut used_pin = Vec::new();
+    let mut is_dff = Vec::<u32>::new();
+
+    for atom in atoms {
+        match atom.atom_type {
+            AtomType::Pin { pins, names } => set_pins(names, pins, &mut pin_map),
+            AtomType::Table {
+                in_names,
+                out_names,
+                table,
+                table_type,
+            } => match parse_table(
+                in_names,
+                out_names,
+                table,
+                table_type,
+                &mut pin_map,
+                &mut used_pin,
+            ) {
+                Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
+                Err(msg) => panic!(msg),
+            },
+            AtomType::BoolFunc { in_names, func } => {
+                match parse_func(in_names, func, &mut pin_map, &mut used_pin) {
+                    Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
+                    Err(msg) => panic!(msg),
+                }
+            }
+            AtomType::Dff { names } => match get_pins(names, &mut pin_map, &mut used_pin) {
+                Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
+                Err(_) => panic!(""),
+            },
+        };
+    }
+
+    for dff in is_dff {
+        let mut dff_def = false;
+        for tb in &mut result {
+            if tb.output_pin == dff {
+                dff_def = true;
+                tb.enable_flip_flop = true;
+                break;
+            }
+        }
+        if !dff_def {
+            panic!("msg");
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,7 +553,7 @@ mod tests {
 
     #[test]
     fn easy_gal() {
-        let input = vec![
+        let data = vec![
             "pin 13 = i0;",
             "pin 11 = i1;",
             "pin 17 = and;",
@@ -326,7 +562,7 @@ mod tests {
             "",
             "table(i0, i1 -> and) {",
             "    00 0",
-            "    01 ",
+            "    01 0",
             "    10 0",
             "    11 1",
             "}",
@@ -351,11 +587,44 @@ mod tests {
             "a = (!b | (c));",
             "a.dff;",
         ];
+
+        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect());
+        let output = vec![
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 17,
+                table: vec![false, false, false, true],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 19,
+                table: vec![false, true, true, false],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 18,
+                table: vec![false, true, true, true],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![3, 2],
+                output_pin: 23,
+                table: vec![true, true, false, true],
+                enable_flip_flop: true,
+            },
+        ];
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at {}", i);
+        }
     }
 
     #[test]
     fn open_gal() {
-        let input = vec![
+        let data = vec![
             "pin 1, 2 = i[0..1];",
             "pin [13..18] = and, or, xor, not;",
             "table(i0, i1 -> and).fill(0) {",
@@ -378,16 +647,44 @@ mod tests {
             "    10",
             "}",
         ];
+        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect());
+        let output = vec![
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 17,
+                table: vec![false, false, false, true],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 19,
+                table: vec![false, true, true, false],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![13, 11],
+                output_pin: 18,
+                table: vec![false, true, true, true],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![3, 2],
+                output_pin: 23,
+                table: vec![true, true, false, true],
+                enable_flip_flop: true,
+            },
+        ];
+
+        assert_eq!(input, output);
+
+        assert_eq!(input.len(), output.len());
+        for i in 0..input.len() {
+            assert_eq!(input[i], output[i], "at {}", i);
+        }
     }
 }
 
 fn main() {
-    let data = vec!["pin 1 = a;\n".to_string()];
-    let mut lexer = lexer::Lexer::new(data.clone());
-    let tokens = lexer.lex();
-
-    let mut syntax_analyser = atomizer::Atomizer::new(data.clone(), tokens);
-    let atoms = syntax_analyser.atomize();
-
-    print!("{:?}", atoms);
+    let data = read_file("code.txt");
+    println!("{:?}", parse(data));
 }

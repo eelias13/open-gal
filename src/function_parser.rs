@@ -296,6 +296,28 @@ fn update_values(values: &mut Vec<bool>) -> bool {
     return false;
 }
 
+pub fn get_names(func: Vec<BoolFunc>) -> Vec<String> {
+    let mut vars = Vec::new();
+    for f in func {
+        match f.clone() {
+            BoolFunc::Var { name } => {
+                let mut in_var = false;
+                for s in vars.clone() {
+                    if s == name {
+                        in_var = true;
+                        break;
+                    }
+                }
+                if !in_var {
+                    vars.push(name);
+                }
+            }
+            _ => (),
+        }
+    }
+    vars
+}
+
 pub fn parse(func: Vec<BoolFunc>) -> Vec<bool> {
     let mut values = Vec::<bool>::new();
     let mut lookup = HashMap::<BoolFunc, *mut bool>::new();
@@ -327,6 +349,31 @@ pub fn parse(func: Vec<BoolFunc>) -> Vec<bool> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_get_names() {
+        let input = vec![
+            BoolFunc::Var {
+                name: "a".to_string(),
+            },
+            BoolFunc::Var {
+                name: "b".to_string(),
+            },
+            BoolFunc::Var {
+                name: "a".to_string(),
+            },
+            BoolFunc::Var {
+                name: "c".to_string(),
+            },
+            BoolFunc::Var {
+                name: "c".to_string(),
+            },
+            BoolFunc::Var {
+                name: "d".to_string(),
+            },
+        ];
+
+        assert_eq!(get_names(input), vec!["a", "b", "c", "d"]);
+    }
     #[test]
     fn test_eval() {
         let func = vec![BoolFunc::Var {
