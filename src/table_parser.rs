@@ -62,7 +62,7 @@ fn parse_fill(
 
 fn pow2(exp: usize) -> usize {
     let mut result = 1;
-    for i in 0..exp {
+    for _ in 0..exp {
         result *= 2;
     }
     result

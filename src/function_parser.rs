@@ -197,53 +197,55 @@ impl Node {
         true
     }
 
-    pub fn eval(node_ptr: *mut Node) -> bool {
+    pub fn eval(node_ptr: *mut Node) -> Option<bool> {
         // can do unsafe because node_ptr != null
         unsafe {
             // if levenode then return value from lookuptable
             if let Some(value) = (*node_ptr).value {
-                return *value;
+                return Some(*value);
             }
-            // walks down the tree depth first (left) and evaluates it
-            let res = match (*node_ptr).operator {
-                Some(BoolFunc::And) => {
-                    if let (Some(left), Some(right)) = ((*node_ptr).left, (*node_ptr).right) {
-                        Node::eval(left) & Node::eval(right)
+            if (*node_ptr).operator == Some(BoolFunc::Not) {
+                if let Some(left_node) = (*node_ptr).left {
+                    if let Some(left_res) = Node::eval(left_node) {
+                        return Some(!left_res);
                     } else {
-                        // TODO make error
-                        unreachable!()
+                        return None;
                     }
+                } else {
+                    return None;
+                }
+            }
+
+            let left;
+            let right;
+
+            if let (Some(left_node), Some(right_node)) = ((*node_ptr).left, (*node_ptr).right) {
+                if let (Some(left_res), Some(right_res)) =
+                    (Node::eval(left_node), Node::eval(right_node))
+                {
+                    left = left_res;
+                    right = right_res;
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+
+            match (*node_ptr).operator {
+                Some(BoolFunc::And) => {
+                    return Some(left & right);
                 }
                 Some(BoolFunc::Xor) => {
-                    if let (Some(left), Some(right)) = ((*node_ptr).left, (*node_ptr).right) {
-                        Node::eval(left) ^ Node::eval(right)
-                    } else {
-                        // TODO make error
-                        unreachable!()
-                    }
+                    return Some(left ^ right);
                 }
                 Some(BoolFunc::Or) => {
-                    if let (Some(left), Some(right)) = ((*node_ptr).left, (*node_ptr).right) {
-                        Node::eval(left) | Node::eval(right)
-                    } else {
-                        // TODO make error
-                        unreachable!()
-                    }
-                }
-                Some(BoolFunc::Not) => {
-                    if let Some(left) = (*node_ptr).left {
-                        !Node::eval(left)
-                    } else {
-                        // TODO make error
-                        unreachable!()
-                    }
+                    return Some(left | right);
                 }
                 _ => {
-                    // TODO make error
-                    unreachable!()
+                    return None;
                 }
-            };
-            return res;
+            }
         }
     }
 }
@@ -318,7 +320,7 @@ pub fn get_names(func: Vec<BoolFunc>) -> Vec<String> {
     vars
 }
 
-pub fn parse(func: Vec<BoolFunc>) -> Vec<bool> {
+pub fn parse(func: Vec<BoolFunc>) -> Option<Vec<bool>> {
     let mut values = Vec::<bool>::new();
     let mut lookup = HashMap::<BoolFunc, *mut bool>::new();
     init_lookup_values(&func, &mut lookup, &mut values);
@@ -329,20 +331,21 @@ pub fn parse(func: Vec<BoolFunc>) -> Vec<bool> {
     let tree = Node::build_tree(func.clone(), &lookup, &const_bool);
     let mut result = Vec::new();
 
-    result.push(Node::eval(tree));
+    if let Some(value) = Node::eval(tree) {
+        result.push(value);
+    } else {
+        return None;
+    }
 
-    if let Some(ptr) = lookup.get(&BoolFunc::Var {
-        name: "a".to_string(),
-    }) {
-        unsafe {
-            println!("{:?}", ptr.read_volatile());
+    while update_values(&mut values) {
+        if let Some(value) = Node::eval(tree) {
+            result.push(value);
+        } else {
+            return None;
         }
     }
-    while update_values(&mut values) {
-        result.push(Node::eval(tree));
-    }
 
-    result
+    Some(result)
 }
 
 #[cfg(test)]
@@ -385,7 +388,7 @@ mod tests {
         let mut temp = vec![false, true];
         let const_bool = unsafe { vec![temp.as_mut_ptr().add(0), temp.as_mut_ptr().add(1)] };
         let tree = Node::build_tree(func.clone(), &lookup, &const_bool);
-        assert_eq!(Node::eval(tree), false);
+        assert_eq!(Node::eval(tree), Some(false));
         if let Some(ptr) = lookup.get(&BoolFunc::Var {
             name: "a".to_string(),
         }) {
@@ -395,7 +398,7 @@ mod tests {
             }
         }
         assert_eq!(update_values(&mut values), true);
-        assert_eq!(Node::eval(tree), true);
+        assert_eq!(Node::eval(tree), Some(true));
         if let Some(ptr) = lookup.get(&BoolFunc::Var {
             name: "a".to_string(),
         }) {
@@ -410,13 +413,16 @@ mod tests {
     #[test]
     fn test_single() {
         let output = vec![false, true];
-        let input = parse(vec![BoolFunc::Var {
+        let parse = parse(vec![BoolFunc::Var {
             name: "a".to_string(),
         }]);
-
-        assert_eq!(input.len(), output.len());
-        for i in 0..input.len() {
-            assert_eq!(input[i], output[i], "at {}", i);
+        if let Some(input) = parse {
+            assert_eq!(input.len(), output.len());
+            for i in 0..input.len() {
+                assert_eq!(input[i], output[i], "at {}", i);
+            }
+        } else {
+            assert_ne!(parse, None);
         }
     }
 
@@ -481,16 +487,24 @@ mod tests {
 
     #[test]
     fn test_const_false() {
-        let output = parse(vec![BoolFunc::Zero, BoolFunc::And, BoolFunc::One]);
-        assert_eq!(output.len(), 1);
-        assert_eq!(output[0], false);
+        let parse = parse(vec![BoolFunc::Zero, BoolFunc::And, BoolFunc::One]);
+        if let Some(output) = parse {
+            assert_eq!(output.len(), 1);
+            assert_eq!(output[0], false);
+        } else {
+            assert_ne!(parse, None)
+        }
     }
 
     #[test]
     fn test_const_true() {
-        let output = parse(vec![BoolFunc::One, BoolFunc::And, BoolFunc::One]);
-        assert_eq!(output.len(), 1);
-        assert_eq!(output[0], true);
+        let parse = parse(vec![BoolFunc::One, BoolFunc::And, BoolFunc::One]);
+        if let Some(output) = parse {
+            assert_eq!(output.len(), 1);
+            assert_eq!(output[0], true);
+        } else {
+            assert_ne!(parse, None)
+        }
     }
 
     #[test]
@@ -506,7 +520,7 @@ mod tests {
             },
         ]);
 
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -522,7 +536,7 @@ mod tests {
             },
         ]);
 
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -538,7 +552,7 @@ mod tests {
             },
         ]);
 
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -551,7 +565,7 @@ mod tests {
             },
         ]);
 
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -561,7 +575,7 @@ mod tests {
             name: "a".to_string(),
         }]);
 
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -584,7 +598,7 @@ mod tests {
                 name: "c".to_string(),
             },
         ]);
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -607,7 +621,7 @@ mod tests {
             },
             BoolFunc::Close,
         ]);
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]
@@ -642,7 +656,7 @@ mod tests {
             BoolFunc::Close,
             BoolFunc::Close,
         ]);
-        assert_eq!(input, output);
+        assert_eq!(input, Some(output));
     }
 
     #[test]

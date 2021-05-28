@@ -275,6 +275,17 @@ impl ParsingError {
         }
     }
 
+    fn from_atom(atom: Atom, msg: String, data: Vec<String>) -> Self {
+        Self {
+            begin_line: atom.begin_line,
+            begin_char: atom.begin_char,
+            len_char: atom.len_char,
+            len_line: atom.len_line,
+            msg,
+            data,
+        }
+    }
+
     fn expect_tokens(token: &Token, expect: Vec<TokenType>, data: Vec<String>) -> Option<Self> {
         let got_type = token.clone().token_type();
         for tt in expect.clone() {
@@ -318,9 +329,24 @@ impl ParsingError {
     }
 
     fn panic(self) {
-        // TODO show line
+        let mut line = String::new();
+        for i in self.begin_line..(self.begin_line + self.len_line - 1) {
+            println!("begin {} len {}", self.begin_line, self.len_line);
+            line.push_str(self.data[i].as_str());
+        }
+        let mut under = String::new();
+        for i in self.begin_char..(self.begin_char + self.len_char) {
+            if let Some(c) = self.data[self.begin_line + self.len_line].chars().nth(i) {
+                line.push(c);
+                under.push('^');
+            }
+        }
+        line.push('\n');
+        line.push_str(under.as_str());
+
         panic!(
-            "{} at line <{}> at index <{}>",
+            "{} \n{} at line <{}> at index <{}>",
+            line,
             self.msg,
             self.begin_line + 1,
             self.begin_char
@@ -366,23 +392,28 @@ fn parse_func(
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<TableData>, String> {
     let mut result = Vec::new();
-
-    for output_pin in match get_pins(in_names, pin_map, used_pin) {
+    let output_pins = match get_pins(in_names, pin_map, used_pin) {
         Ok(pins) => pins,
-        Err(_) => panic!("msg"),
-    } {
-        let table = function_parser::parse(func.clone());
-        let in_names = function_parser::get_names(func.clone());
+        Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
+    };
 
-        result.push(TableData {
-            input_pins: match get_pins(in_names, pin_map, used_pin) {
+    for output_pin in output_pins {
+        if let Some(table) = function_parser::parse(func.clone()) {
+            let in_names = function_parser::get_names(func.clone());
+            let input_pins = match get_pins(in_names, pin_map, used_pin) {
                 Ok(pins) => pins,
-                Err(_) => panic!("msg"),
-            },
-            output_pin,
-            table,
-            enable_flip_flop: false,
-        });
+                Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
+            };
+
+            result.push(TableData {
+                input_pins,
+                output_pin,
+                table,
+                enable_flip_flop: false,
+            });
+        } else {
+            return Err("can't evaluete boolean expression".to_string());
+        }
     }
     Ok(result)
 }
@@ -398,23 +429,28 @@ fn parse_table(
     let mut result = Vec::new();
     let table_2d = match table_parser::parse(in_names.len(), out_names.len(), table, table_type) {
         Ok(t) => t,
-        Err(msg) => panic!("{}", msg),
+        Err(msg) => return Err(msg),
     };
     let output_pins = match get_pins(out_names.clone(), pin_map, used_pin) {
         Ok(pins) => pins,
-        Err(_) => return Err("pins are not defind".to_string()),
+        Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
     };
 
     if output_pins.len() != table_2d.len() {
-        panic!("msg");
+        return Err(format!(
+            "table len <{}> dose not match output atguments <{}>",
+            table_2d.len(),
+            output_pins.len()
+        ));
     }
 
     for i in 0..table_2d.len() {
+        let input_pins = match get_pins(in_names.clone(), pin_map, used_pin) {
+            Ok(pins) => pins,
+            Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
+        };
         result.push(TableData {
-            input_pins: match get_pins(in_names.clone(), pin_map, used_pin) {
-                Ok(pins) => pins,
-                Err(_) => panic!("msg"),
-            },
+            input_pins,
             output_pin: output_pins[i],
             table: table_2d[i].clone(),
             enable_flip_flop: false,
@@ -427,7 +463,7 @@ fn get_pins(
     names: Vec<String>,
     pin_map: &mut HashMap<String, u32>,
     used_pin: &mut Vec<u32>,
-) -> Result<Vec<u32>, ()> {
+) -> Result<Vec<u32>, String> {
     let mut pins = Vec::new();
     for name in names {
         if let Some(&pin) = pin_map.get(&name) {
@@ -444,21 +480,23 @@ fn get_pins(
                 used_pin.push(pin);
             }
         } else {
-            return Err(());
+            return Err(name);
         }
     }
     Ok(pins)
 }
 
-fn set_pins(names: Vec<String>, pins: Vec<u64>, pin_map: &mut HashMap<String, u32>) {
+fn set_pins(
+    names: Vec<String>,
+    pins: Vec<u64>,
+    pin_map: &mut HashMap<String, u32>,
+) -> Result<(), String> {
     if pins.len() != names.len() {
-        // TODO error
-        let _msg = format!(
-            "pin len {} and name len dose not match{}",
+        return Err(format!(
+            "pin len <{}> dose not match name atguments <{}>",
             pins.len(),
             names.len()
-        );
-        panic!("msg");
+        ));
     }
     for i in 0..pins.len() {
         // TODO validate pins
@@ -470,15 +508,19 @@ fn set_pins(names: Vec<String>, pins: Vec<u64>, pin_map: &mut HashMap<String, u3
             }
         }
         if let Some(pin) = def_pin {
-            //let _msg = format!("name <{}> has been defined previously (with pin <{}>)",);
-            panic!("msg");
+            return Err(format!(
+                "pin <{}> has been defined previously (with name <{}>)",
+                pin,
+                names[i].clone()
+            ));
         }
 
         if let Some(name) = pin_map.insert(names[i].clone(), pins[i] as u32) {
-            // TODO error
-            panic!("msg");
+            return Err(format!("name <{}> has been defined previously", name));
         }
     }
+
+    Ok(())
 }
 
 pub fn parse(data: Vec<String>) -> Vec<TableData> {
@@ -494,8 +536,15 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
     let mut is_dff = Vec::<u32>::new();
 
     for atom in atoms {
-        match atom.atom_type {
-            AtomType::Pin { pins, names } => set_pins(names, pins, &mut pin_map),
+        match atom.clone().atom_type {
+            AtomType::Pin { pins, names } => match set_pins(names, pins, &mut pin_map) {
+                Ok(()) => (),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
+            },
             AtomType::Table {
                 in_names,
                 out_names,
@@ -510,17 +559,29 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
                 &mut used_pin,
             ) {
                 Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
-                Err(msg) => panic!(msg),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
             },
             AtomType::BoolFunc { in_names, func } => {
                 match parse_func(in_names, func, &mut pin_map, &mut used_pin) {
                     Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
-                    Err(msg) => panic!(msg),
+                    Err(msg) => {
+                        let err = ParsingError::from_atom(atom, msg, data);
+                        err.panic();
+                        unreachable!()
+                    }
                 }
             }
             AtomType::Dff { names } => match get_pins(names, &mut pin_map, &mut used_pin) {
                 Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
-                Err(_) => panic!(""),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
             },
         };
     }
@@ -535,7 +596,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
             }
         }
         if !dff_def {
-            panic!("msg");
+            panic!("dff pin <{}> has alrady been definde", dff);
         }
     }
 
@@ -626,7 +687,7 @@ mod tests {
     fn open_gal() {
         let data = vec![
             "pin 1, 2 = i[0..1];",
-            "pin [13..18] = and, or, xor, not;",
+            "pin [13..16] = and, or, xor, not;",
             "table(i0, i1 -> and).fill(0) {",
             "    11 1",
             "}",
@@ -650,32 +711,30 @@ mod tests {
         let input = parse(data.iter().map(|l| format!("{}\n", l)).collect());
         let output = vec![
             TableData {
-                input_pins: vec![13, 11],
-                output_pin: 17,
+                input_pins: vec![1, 2],
+                output_pin: 13,
                 table: vec![false, false, false, true],
                 enable_flip_flop: false,
             },
             TableData {
-                input_pins: vec![13, 11],
-                output_pin: 19,
-                table: vec![false, true, true, false],
-                enable_flip_flop: false,
-            },
-            TableData {
-                input_pins: vec![13, 11],
-                output_pin: 18,
+                input_pins: vec![1, 2],
+                output_pin: 14,
                 table: vec![false, true, true, true],
                 enable_flip_flop: false,
             },
             TableData {
-                input_pins: vec![3, 2],
-                output_pin: 23,
-                table: vec![true, true, false, true],
-                enable_flip_flop: true,
+                input_pins: vec![1, 2],
+                output_pin: 15,
+                table: vec![false, true, true, false],
+                enable_flip_flop: false,
+            },
+            TableData {
+                input_pins: vec![1],
+                output_pin: 16,
+                table: vec![true, false],
+                enable_flip_flop: false,
             },
         ];
-
-        assert_eq!(input, output);
 
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
