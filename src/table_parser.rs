@@ -177,7 +177,15 @@ mod tests {
     #[test]
     fn test_split_rows() {
         assert_eq!(
-            split_rows(str2_bool("111000010100"), 3),
+            split_rows(
+                str2_bool(
+                    "111
+                    000
+                    010
+                    100"
+                ),
+                3
+            ),
             vec![
                 vec![true, true, true],
                 vec![false, false, false],
@@ -315,13 +323,23 @@ mod tests {
 
     #[test]
     fn test_count_medium() {
-        let table_stream = str2_bool(
-            "
+        let table_stream;
+        if COUNT_VERTICAL {
+            table_stream = str2_bool(
+                "
+                    0111
+                    0001
+                    0110",
+            );
+        } else {
+            table_stream = str2_bool(
+                "
 			000
 			101
 			101
             110",
-        );
+            );
+        }
 
         assert_eq!(
             parse_count(2, 3, table_stream),
@@ -342,41 +360,50 @@ mod tests {
 
     #[test]
     fn test_count_large() {
-        let table_stream = str2_bool(
-            "
-            01
-            01
-            01
-            00
-            10
-            10
-            01
-            10
-            11
-            00
-            10
-            10
-            00
-            00
-            00
-            11
-            01
-            11
-            01
-            01
-            00
-            00
-            00
-            11
-            11
-            11
-            01
-            01
-            10
-            10
-            10
-            10",
-        );
+        let table_stream;
+        if COUNT_VERTICAL {
+            table_stream = str2_bool(
+                "
+            00001101101100010100000111001111
+            11100010100000011111000111110000",
+            );
+        } else {
+            table_stream = str2_bool(
+                "
+                01
+                01
+                01
+                00
+                10
+                10
+                01
+                10
+                11
+                00
+                10
+                10
+                00
+                00
+                00
+                11
+                01
+                11
+                01
+                01
+                00
+                00
+                00
+                11
+                11
+                11
+                01
+                01
+                10
+                10
+                10
+                10",
+            );
+        }
 
         assert_eq!(
             parse_count(5, 2, table_stream),
