@@ -8,9 +8,9 @@ const NOT: char = '!';
 const NUM_FIRST: bool = true;
 const COUNT_VERTICAL: bool = false;
 
+mod atomizer;
 mod function_parser;
 mod lexer;
-mod syntax_analyser;
 mod table_parser;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -187,7 +187,7 @@ pub enum BoolFunc {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum SentenceType {
+pub enum AtomType {
     Pin {
         pins: Vec<u64>,
         names: Vec<String>,
@@ -208,23 +208,18 @@ pub enum SentenceType {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Sentence {
+pub struct Atom {
     begin_char: usize,
     len_char: usize,
     len_line: usize,
     begin_line: usize,
     begin_token: usize,
     len_token: usize,
-    sentence_type: SentenceType,
+    atom_type: AtomType,
 }
 
-impl Sentence {
-    fn new(
-        tokens: &Vec<Token>,
-        begin_token: usize,
-        len_token: usize,
-        sentence_type: SentenceType,
-    ) -> Self {
+impl Atom {
+    fn new(tokens: &Vec<Token>, begin_token: usize, len_token: usize, atom_type: AtomType) -> Self {
         Self {
             begin_char: tokens[0].begin_char,
             len_char: tokens.into_iter().map(|t| t.len_char).sum(),
@@ -232,7 +227,7 @@ impl Sentence {
             len_line: tokens.into_iter().map(|t| t.len_line).sum(),
             begin_token,
             len_token,
-            sentence_type,
+            atom_type,
         }
     }
 }
@@ -391,8 +386,8 @@ fn main() {
     let mut lexer = lexer::Lexer::new(data.clone());
     let tokens = lexer.lex();
 
-    let mut syntax_analyser = syntax_analyser::SyntaxAnalyser::new(data.clone(), tokens);
-    let sentences = syntax_analyser.analys();
+    let mut syntax_analyser = atomizer::Atomizer::new(data.clone(), tokens);
+    let atoms = syntax_analyser.atomize();
 
-    print!("{:?}", sentences);
+    print!("{:?}", atoms);
 }

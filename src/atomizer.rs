@@ -1,32 +1,32 @@
 use super::*;
 
-pub struct SyntaxAnalyser {
+pub struct Atomizer {
     data: Vec<String>,
     tokens: Vec<Token>,
     index: usize,
-    sentences: Vec<Sentence>,
+    atoms: Vec<Atom>,
     current_token: Token,
     is_eof: bool,
 }
 
-impl SyntaxAnalyser {
+impl Atomizer {
     pub fn new(data: Vec<String>, tokens: Vec<Token>) -> Self {
-        SyntaxAnalyser {
+        Atomizer {
             data,
             tokens: tokens.clone(),
             index: 0,
-            sentences: Vec::<Sentence>::new(),
+            atoms: Vec::<Atom>::new(),
             current_token: tokens[0].clone(),
             is_eof: false,
         }
     }
 
-    pub fn analys(&mut self) -> Vec<Sentence> {
+    pub fn atomize(&mut self) -> Vec<Atom> {
         while !self.is_eof {
             match self.current() {
-                TokenType::Pin => self.analysis_pin(),
-                TokenType::Table => self.analysis_table(),
-                TokenType::Identifier { name: _ } => self.analysis_identifiers(),
+                TokenType::Pin => self.atomize_pin(),
+                TokenType::Table => self.atomize_table(),
+                TokenType::Identifier { name: _ } => self.atomize_identifiers(),
                 _ => {
                     self.expect_multible(vec![
                         TokenType::Pin,
@@ -40,7 +40,7 @@ impl SyntaxAnalyser {
             }
         }
 
-        self.sentences.clone()
+        self.atoms.clone()
     }
 
     fn next(&mut self) {
@@ -219,7 +219,7 @@ impl SyntaxAnalyser {
         result
     }
 
-    fn analysis_pin(&mut self) {
+    fn atomize_pin(&mut self) {
         let begin_token = self.index;
 
         self.expect(TokenType::Pin);
@@ -241,13 +241,13 @@ impl SyntaxAnalyser {
 
         let len_token = self.index - begin_token;
         let tokens = &self.tokens;
-        let sentence_type = SentenceType::Pin { names, pins };
+        let atom_type = AtomType::Pin { names, pins };
 
-        self.sentences
-            .push(Sentence::new(tokens, begin_token, len_token, sentence_type));
+        self.atoms
+            .push(Atom::new(tokens, begin_token, len_token, atom_type));
     }
 
-    fn analysis_table(&mut self) {
+    fn atomize_table(&mut self) {
         let begin_token = self.index;
 
         self.expect(TokenType::Table);
@@ -290,18 +290,18 @@ impl SyntaxAnalyser {
 
         let len_token = self.index - begin_token;
         let tokens = &self.tokens;
-        let sentence_type = SentenceType::Table {
+        let atom_type = AtomType::Table {
             in_names,
             out_names,
             table,
             table_type,
         };
 
-        self.sentences
-            .push(Sentence::new(tokens, begin_token, len_token, sentence_type));
+        self.atoms
+            .push(Atom::new(tokens, begin_token, len_token, atom_type));
     }
 
-    fn analysis_identifiers(&mut self) {
+    fn atomize_identifiers(&mut self) {
         let begin_token = self.index;
         let names = self.parse_identifiers();
 
@@ -314,11 +314,11 @@ impl SyntaxAnalyser {
             let len_token = self.index - begin_token;
             let tokens = &self.tokens;
 
-            self.sentences.push(Sentence::new(
+            self.atoms.push(Atom::new(
                 tokens,
                 begin_token,
                 len_token,
-                SentenceType::Dff { names },
+                AtomType::Dff { names },
             ));
         } else {
             // parse bool function
@@ -330,11 +330,11 @@ impl SyntaxAnalyser {
             let len_token = self.index - begin_token;
             let tokens = &self.tokens;
 
-            self.sentences.push(Sentence::new(
+            self.atoms.push(Atom::new(
                 tokens,
                 begin_token,
                 len_token,
-                SentenceType::BoolFunc {
+                AtomType::BoolFunc {
                     in_names: names,
                     func,
                 },
@@ -438,10 +438,6 @@ impl SyntaxAnalyser {
     }
 }
 
-// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------- test ---------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -476,9 +472,9 @@ mod tests {
             TokenType::Semicolon,
         ]]);
 
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens);
+        let mut atomizer = Atomizer::new(data, tokens);
 
-        let input = syntax_analyser.parse_func();
+        let input = atomizer.parse_func();
         // (a|b&d|(c^!1))
         let output: Vec<BoolFunc> = vec![
             BoolFunc::Open,
@@ -544,15 +540,15 @@ mod tests {
                 TokenType::Ignore { comment: None },
             ],
         ]);
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens.clone());
+        let mut atomizer = Atomizer::new(data, tokens.clone());
 
-        let input = syntax_analyser.analys();
+        let input = atomizer.atomize();
         let output = vec![
-            Sentence::new(
+            Atom::new(
                 &tokens,
                 0,
                 10,
-                SentenceType::BoolFunc {
+                AtomType::BoolFunc {
                     in_names: vec!["a".to_string()],
                     func: vec![
                         BoolFunc::Var {
@@ -565,11 +561,11 @@ mod tests {
                     ],
                 },
             ),
-            Sentence::new(
+            Atom::new(
                 &tokens,
                 10,
                 4,
-                SentenceType::Dff {
+                AtomType::Dff {
                     names: vec!["a".to_string()],
                 },
             ),
@@ -612,16 +608,16 @@ mod tests {
             ],
         ]);
 
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens);
+        let mut atomizer = Atomizer::new(data, tokens);
 
-        let mut input = syntax_analyser.parse_identifiers();
+        let mut input = atomizer.parse_identifiers();
         let mut output = vec!["a", "b", "c"];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
             assert_eq!(input[i], output[i]);
         }
 
-        input = syntax_analyser.parse_identifiers();
+        input = atomizer.parse_identifiers();
         output = vec!["pin0", "pin1", "pin2", "pin3"];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
@@ -658,9 +654,9 @@ mod tests {
             ],
         ]);
 
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens);
+        let mut atomizer = Atomizer::new(data, tokens);
 
-        let mut input = syntax_analyser.parse_num();
+        let mut input = atomizer.parse_num();
         let mut output = vec![1, 2, 3, 10];
 
         assert_eq!(input.len(), output.len());
@@ -668,7 +664,7 @@ mod tests {
             assert_eq!(input[i], output[i]);
         }
 
-        input = syntax_analyser.parse_num();
+        input = atomizer.parse_num();
         output = vec![0, 1, 2, 3];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
@@ -693,16 +689,16 @@ mod tests {
             TokenType::Ignore { comment: None },
         ]]);
 
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens.clone());
-        let input = syntax_analyser.analys();
+        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let input = atomizer.atomize();
         assert_eq!(input.len(), 1);
         assert_eq!(
             input[0],
-            Sentence::new(
+            Atom::new(
                 &tokens,
                 0,
                 8,
-                SentenceType::Pin {
+                AtomType::Pin {
                     pins: vec![3],
                     names: vec!["a".to_string()]
                 },
@@ -789,16 +785,16 @@ mod tests {
             ],
         ]);
 
-        let mut syntax_analyser = SyntaxAnalyser::new(data, tokens.clone());
-        let input = syntax_analyser.analys();
+        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let input = atomizer.atomize();
         assert_eq!(input.len(), 1);
         assert_eq!(
             input[0],
-            Sentence::new(
+            Atom::new(
                 &tokens,
                 0,
                 tokens.len() - 1,
-                SentenceType::Table {
+                AtomType::Table {
                     in_names: vec!["i0".to_string(), "i1".to_string()],
                     out_names: vec!["and".to_string()],
                     table: vec![
