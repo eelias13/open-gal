@@ -1,12 +1,12 @@
-const AND: char = '&';
-const OR: char = '|';
-const XOR: char = '?';
-const NOT: char = '!';
+pub const AND: char = '&';
+pub const OR: char = '|';
+pub const XOR: char = '?';
+pub const NOT: char = '!';
 
 // when parsing pin the number comes first
 // e.g. if NUM_FIRST == true `pin 1 = a;` else `pin a = 1;`
-const NUM_FIRST: bool = true;
-const COUNT_VERTICAL: bool = false;
+pub const NUM_FIRST: bool = true;
+pub const COUNT_VERTICAL: bool = false;
 
 mod atomizer;
 mod function_parser;
@@ -244,8 +244,8 @@ impl Atom {
 *   - "m_EnableDFlipFlop" holds a boolean which decides if the output pin should have its flip flop turned on.
 */
 
-#[repr(C)]
 #[derive(PartialEq, Debug, Clone)]
+#[repr(C)]
 pub struct TableData {
     input_pins: Vec<u32>,
     output_pin: u32,
@@ -362,7 +362,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-pub fn read_file(file: &str) -> Vec<String> {
+fn read_file(file: &str) -> Vec<String> {
     let mut result = Vec::new();
 
     for (i, line) in read_lines(file)
@@ -523,7 +523,7 @@ fn set_pins(
     Ok(())
 }
 
-pub fn parse(data: Vec<String>) -> Vec<TableData> {
+fn parse(data: Vec<String>) -> Vec<TableData> {
     let mut result = Vec::new();
 
     let mut lexer = Lexer::new(data.clone());
@@ -743,7 +743,17 @@ mod tests {
     }
 }
 
-fn main() {
-    let data = read_file("code.txt");
-    println!("{:?}", parse(data));
+use std::ffi::CString;
+
+#[no_mangle]
+pub extern "C" fn parse_file(file: CString) -> CVec<TableData> {
+    let data = read_file(file.to_str().unwrap());
+    let table_data = parse(data);
+    let result = CVec::new();
+    CVecCVec
 }
+
+//fn main() {
+//    let data = read_file("code.txt");
+//    println!("{:?}", parse(data));
+//}
