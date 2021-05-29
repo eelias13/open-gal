@@ -1,1 +1,31 @@
+<<<<<<< HEAD
 /target
+=======
+/.vscode
+/.vs
+
+/EasyGAL
+/Compiler.o
+
+/Shared/API.o
+/Shared/Utility.o
+/Shared/Validate.o
+
+/Parser/Error.o
+/Parser/FunctionParser.o
+/Parser/Lexer.o
+/Parser/Parser.o
+/Parser/TableParser.o
+
+/Translator/Configs.o
+/Translator/DNF.o
+/Translator/Fuses.o
+/Translator/Helper.o
+/Translator/Serialization.o
+/Translator/Translator.o
+
+/.vs/EasyGAL2/v16/ipch/AutoPCH
+Parser/FunctionParser.o
+Parser/Lexer.o
+Parser/Parser.o
+>>>>>>> upstream/master
