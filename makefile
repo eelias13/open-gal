@@ -4,7 +4,7 @@ CFLAGS = -c -Werror
 LDFLAGS =
 
 # name of compiler executable
-EXECUTABLE = EasyGAL 
+EXECUTABLE = OpenGal 
 
 # files for compiler
 COMPILER_MAIN = Compiler.cpp

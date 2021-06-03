@@ -3,7 +3,7 @@
 /.vscode
 /.vs
 
-/EasyGAL
+/OpenGal
 /Compiler.o
 
 /Shared/API.o
