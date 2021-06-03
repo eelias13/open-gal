@@ -13,9 +13,7 @@
 #include "Shared/Dependencies/json.hpp"
 #include "Shared/Utility.h"
 #include "Shared/API.h"
-
-#include "Parser/Parser.h"
-#include "Parser/Error.h"
+#include "Shared/ConvertRust.h"
 
 #include "Translator/Translator.hpp"
 #include "Translator/Configs.h"
@@ -24,8 +22,7 @@ using namespace std;
 
 void compile(string easyGALCode, string outputFileName, string deviceName)
 {
-	Parser parser = Parser(easyGALCode);
-	vector<TableData> tableData = parser.parse();
+	vector<TableData> tableData = parseAndConvert(easyGALCode);
 
 	Configs::CircuitConfig DeviceType;
 	vector<uint32_t> inputPins;

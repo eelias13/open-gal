@@ -9,8 +9,7 @@
 
 void api::code2TableData(string easyGALCode, string outputFileName, string deviceName)
 {
-    Parser parser = Parser(easyGALCode);
-    vector<TableData> tableData = parser.parse();
+    vector<TableData> tableData = parseAndConvert(easyGALCode);
 
     if (!deviceName.empty())
     {
@@ -47,7 +46,8 @@ void api::code2TableData(string easyGALCode, string outputFileName, string devic
 TableData api::parseTableData(json tdJson)
 {
     // auto glambda = [](auto a, auto &&b) { return a < b; };
-    auto check = [](string expected, json tdJson) {
+    auto check = [](string expected, json tdJson)
+    {
         if (tdJson.find(expected) == tdJson.end())
         {
             cerr << "missing property " << expected << " in json object " << tdJson << endl;

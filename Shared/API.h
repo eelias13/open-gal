@@ -15,9 +15,11 @@
 
 #include "Dependencies/json.hpp"
 #include "Utility.h"
+#include "ConvertRust.h"
 
-#include "../Parser/Parser.h"
 #include "../Translator/Translator.hpp"
+
+
 
 using namespace std;
 using json = nlohmann::json;

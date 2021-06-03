@@ -13,8 +13,111 @@ mod function_parser;
 mod lexer;
 mod table_parser;
 
+use atomizer::Atomizer;
+use lexer::Lexer;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::mem;
+use std::path::Path;
 use std::usize;
 use std::{collections::HashMap, u32};
+
+extern crate libc;
+
+#[no_mangle]
+pub unsafe extern "C" fn parse_file(input: *mut std::os::raw::c_char) -> TransferTableDataArr {
+    let data = read_file(char_ptr_2_str(input).as_str());
+    let table_data = parse(data);
+    convert_vec_table_data(table_data)
+}
+
+#[derive(PartialEq, Debug, Clone)]
+#[repr(C)]
+pub struct TransferU32Vec {
+    arr: *mut u32,
+    len: usize,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+#[repr(C)]
+pub struct TransferBoolVec {
+    arr: *mut bool,
+    len: usize,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+#[repr(C)]
+pub struct TransferTableData {
+    input_pins: TransferU32Vec,
+    output_pin: u32,
+    table: TransferBoolVec,
+    enable_flip_flop: bool,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+#[repr(C)]
+pub struct TransferTableDataArr {
+    arr: *mut TransferTableData,
+    len: usize,
+}
+
+unsafe fn convert_vec_u32(vec: Vec<u32>) -> TransferU32Vec {
+    let arr: *mut u32 =
+        libc::malloc((mem::size_of::<u32>() as libc::size_t) * vec.len()) as *mut u32;
+
+    for (i, v) in vec.iter().enumerate() {
+        *(arr.add(i)) = v.clone();
+    }
+
+    TransferU32Vec {
+        arr,
+        len: vec.len(),
+    }
+}
+
+unsafe fn convert_vec_bool(vec: Vec<bool>) -> TransferBoolVec {
+    let arr: *mut bool = libc::malloc((mem::size_of::<bool>()) * vec.len()) as *mut bool;
+    for (i, v) in vec.iter().enumerate() {
+        *(arr.add(i)) = v.clone();
+    }
+    TransferBoolVec {
+        arr,
+        len: vec.len(),
+    }
+}
+
+unsafe fn convert_table_data(td: TableData) -> TransferTableData {
+    TransferTableData {
+        input_pins: convert_vec_u32(td.input_pins),
+        output_pin: td.output_pin,
+        table: convert_vec_bool(td.table),
+        enable_flip_flop: td.enable_flip_flop,
+    }
+}
+
+unsafe fn convert_vec_table_data(vec: Vec<TableData>) -> TransferTableDataArr {
+    let arr: *mut TransferTableData =
+        libc::malloc((mem::size_of::<TransferTableData>()) * vec.len()) as *mut TransferTableData;
+    for (i, v) in vec.iter().enumerate() {
+        *(arr.add(i)) = convert_table_data(v.clone());
+    }
+    TransferTableDataArr {
+        arr,
+        len: vec.len(),
+    }
+}
+
+unsafe fn char_ptr_2_str(input: *mut std::os::raw::c_char) -> String {
+    let mut output = String::new();
+    let mut i = 0;
+    while *(input.add(i)) != 0 {
+        output.push(*(input.add(i)) as u8 as char);
+        i += 1;
+    }
+    output
+}
+
+// ---------------------------------------------------------------------- Token ----------------------------------------------------------------------
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
@@ -169,24 +272,17 @@ impl std::fmt::Display for Token {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum TableType {
-    Fill { value: bool },
-    Full,
-    Count,
-}
+// ---------------------------------------------------------------------- Atom ----------------------------------------------------------------------
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub enum BoolFunc {
-    And,
-    Or,
-    Xor,
-    Not,
-    Var { name: String },
-    One,
-    Zero,
-    Open,
-    Close,
+#[derive(PartialEq, Debug, Clone)]
+pub struct Atom {
+    begin_char: usize,
+    len_char: usize,
+    len_line: usize,
+    begin_line: usize,
+    begin_token: usize,
+    len_token: usize,
+    atom_type: AtomType,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -211,14 +307,23 @@ pub enum AtomType {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Atom {
-    begin_char: usize,
-    len_char: usize,
-    len_line: usize,
-    begin_line: usize,
-    begin_token: usize,
-    len_token: usize,
-    atom_type: AtomType,
+pub enum TableType {
+    Fill { value: bool },
+    Full,
+    Count,
+}
+
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+pub enum BoolFunc {
+    And,
+    Or,
+    Xor,
+    Not,
+    Var { name: String },
+    One,
+    Zero,
+    Open,
+    Close,
 }
 
 impl Atom {
@@ -235,6 +340,7 @@ impl Atom {
     }
 }
 
+// ---------------------------------------------------------------------- TableData ----------------------------------------------------------------------
 /*
 *   This data structure contains following data from processed expressions.
 *
@@ -245,15 +351,14 @@ impl Atom {
 */
 
 #[derive(PartialEq, Debug, Clone)]
-#[repr(C)]
-pub struct TableData {
+struct TableData {
     input_pins: Vec<u32>,
     output_pin: u32,
     table: Vec<bool>,
     enable_flip_flop: bool,
 }
 
-// --------------------------------------------------- Error ---------------------------------------------------
+// ---------------------------------------------------------------------- Error ----------------------------------------------------------------------
 struct ParsingError {
     begin_line: usize,
     begin_char: usize,
@@ -354,13 +459,7 @@ impl ParsingError {
     }
 }
 
-// --------------------------------------------------- Parser ---------------------------------------------------
-
-use atomizer::Atomizer;
-use lexer::Lexer;
-use std::fs::File;
-use std::io::{self, BufRead};
-use std::path::Path;
+// ---------------------------------------------------------------------- read file ----------------------------------------------------------------------
 
 fn read_file(file: &str) -> Vec<String> {
     let mut result = Vec::new();
@@ -383,6 +482,88 @@ where
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
+}
+
+// ---------------------------------------------------------------------- Parser ----------------------------------------------------------------------
+
+fn parse(data: Vec<String>) -> Vec<TableData> {
+    let mut result = Vec::new();
+
+    let mut lexer = Lexer::new(data.clone());
+    let tokens = lexer.lex();
+    let mut atomizer = Atomizer::new(data.clone(), tokens);
+    let atoms = atomizer.atomize();
+
+    let mut pin_map: HashMap<String, u32> = HashMap::new();
+    let mut used_pin = Vec::new();
+    let mut is_dff = Vec::<u32>::new();
+
+    for atom in atoms {
+        match atom.clone().atom_type {
+            AtomType::Pin { pins, names } => match set_pins(names, pins, &mut pin_map) {
+                Ok(()) => (),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
+            },
+            AtomType::Table {
+                in_names,
+                out_names,
+                table,
+                table_type,
+            } => match parse_table(
+                in_names,
+                out_names,
+                table,
+                table_type,
+                &mut pin_map,
+                &mut used_pin,
+            ) {
+                Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
+            },
+            AtomType::BoolFunc { in_names, func } => {
+                match parse_func(in_names, func, &mut pin_map, &mut used_pin) {
+                    Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
+                    Err(msg) => {
+                        let err = ParsingError::from_atom(atom, msg, data);
+                        err.panic();
+                        unreachable!()
+                    }
+                }
+            }
+            AtomType::Dff { names } => match get_pins(names, &mut pin_map, &mut used_pin) {
+                Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
+                Err(msg) => {
+                    let err = ParsingError::from_atom(atom, msg, data);
+                    err.panic();
+                    unreachable!()
+                }
+            },
+        };
+    }
+
+    for dff in is_dff {
+        let mut dff_def = false;
+        for tb in &mut result {
+            if tb.output_pin == dff {
+                dff_def = true;
+                tb.enable_flip_flop = true;
+                break;
+            }
+        }
+        if !dff_def {
+            panic!("dff pin <{}> has alrady been definde", dff);
+        }
+    }
+
+    result
 }
 
 fn parse_func(
@@ -523,85 +704,7 @@ fn set_pins(
     Ok(())
 }
 
-fn parse(data: Vec<String>) -> Vec<TableData> {
-    let mut result = Vec::new();
-
-    let mut lexer = Lexer::new(data.clone());
-    let tokens = lexer.lex();
-    let mut atomizer = Atomizer::new(data.clone(), tokens);
-    let atoms = atomizer.atomize();
-
-    let mut pin_map: HashMap<String, u32> = HashMap::new();
-    let mut used_pin = Vec::new();
-    let mut is_dff = Vec::<u32>::new();
-
-    for atom in atoms {
-        match atom.clone().atom_type {
-            AtomType::Pin { pins, names } => match set_pins(names, pins, &mut pin_map) {
-                Ok(()) => (),
-                Err(msg) => {
-                    let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
-                }
-            },
-            AtomType::Table {
-                in_names,
-                out_names,
-                table,
-                table_type,
-            } => match parse_table(
-                in_names,
-                out_names,
-                table,
-                table_type,
-                &mut pin_map,
-                &mut used_pin,
-            ) {
-                Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
-                Err(msg) => {
-                    let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
-                }
-            },
-            AtomType::BoolFunc { in_names, func } => {
-                match parse_func(in_names, func, &mut pin_map, &mut used_pin) {
-                    Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
-                    Err(msg) => {
-                        let err = ParsingError::from_atom(atom, msg, data);
-                        err.panic();
-                        unreachable!()
-                    }
-                }
-            }
-            AtomType::Dff { names } => match get_pins(names, &mut pin_map, &mut used_pin) {
-                Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
-                Err(msg) => {
-                    let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
-                }
-            },
-        };
-    }
-
-    for dff in is_dff {
-        let mut dff_def = false;
-        for tb in &mut result {
-            if tb.output_pin == dff {
-                dff_def = true;
-                tb.enable_flip_flop = true;
-                break;
-            }
-        }
-        if !dff_def {
-            panic!("dff pin <{}> has alrady been definde", dff);
-        }
-    }
-
-    result
-}
+// ---------------------------------------------------------------------- Tests ----------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -742,18 +845,3 @@ mod tests {
         }
     }
 }
-
-use std::ffi::CString;
-
-#[no_mangle]
-pub extern "C" fn parse_file(file: CString) -> CVec<TableData> {
-    let data = read_file(file.to_str().unwrap());
-    let table_data = parse(data);
-    let result = CVec::new();
-    CVecCVec
-}
-
-//fn main() {
-//    let data = read_file("code.txt");
-//    println!("{:?}", parse(data));
-//}
