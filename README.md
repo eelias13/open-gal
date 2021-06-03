@@ -94,6 +94,6 @@ thi second is [rust](https://www.rust-lang.org/tools/install)
 
 and the last one is [cbindgen](https://crates.io/crates/cbindgen) this you cant download this via cargo by typing `cargo install cbindgen`
 
-if you have everything set up you can go ahead and clone the repo `git clone https://github.com/eeli1/open_gal` then `cd open_gal` and `make`
+if you have everything set up you can go ahead and clone the repo `git clone https://github.com/eeli1/open-gal` then `cd open-gal` and `make`
 
 to use it just type `./OpenGal`

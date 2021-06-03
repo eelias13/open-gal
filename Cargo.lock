@@ -139,7 +139,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "open_gal"
+name = "open-gal"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
