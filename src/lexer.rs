@@ -667,7 +667,7 @@ mod tests {
         let output = Token::vec(vec![
             vec![
                 TokenType::Identifier {
-                    name: "ac".to_string(), // her should be an b instade of an c
+                    name: "ac".to_string(), // her should be an b instade of an c 
                 },
                 TokenType::Ignore { comment: None },
                 TokenType::Identifier {
