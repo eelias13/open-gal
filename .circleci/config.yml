@@ -5,6 +5,4 @@ jobs:
       - image: cimg/rust:1.53.0
     steps:
       - checkout
-      - run: cargo install cbindgen
       - run: cargo test
-      - run: make
