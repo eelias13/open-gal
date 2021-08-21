@@ -9,7 +9,6 @@ pub const NUM_FIRST: bool = true;
 pub const COUNT_VERTICAL: bool = false;
 
 mod atomizer;
-mod function_parser;
 mod lexer;
 mod table_parser;
 
@@ -578,9 +577,24 @@ fn parse_func(
         Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
     };
 
+    let mut temp = Vec::with_capacity(func.capacity());
+    for f in func {
+        temp.push(match f {
+            BoolFunc::And => bool_func_parser::Token::And,
+            BoolFunc::Or => bool_func_parser::Token::Or,
+            BoolFunc::Xor => bool_func_parser::Token::Xor,
+            BoolFunc::Not => bool_func_parser::Token::Not,
+            BoolFunc::Close => bool_func_parser::Token::Close,
+            BoolFunc::Open => bool_func_parser::Token::Open,
+            BoolFunc::Zero => bool_func_parser::Token::Zero,
+            BoolFunc::One => bool_func_parser::Token::One,
+            BoolFunc::Var { name } => bool_func_parser::Token::Var { name },
+        });
+    }
+
     for output_pin in output_pins {
-        if let Some(table) = function_parser::parse(func.clone()) {
-            let in_names = function_parser::get_names(func.clone());
+        if let Some(table) = bool_func_parser::parse(&temp) {
+            let in_names = bool_func_parser::get_names(&temp);
             let input_pins = match get_pins(in_names, pin_map, used_pin) {
                 Ok(pins) => pins,
                 Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
