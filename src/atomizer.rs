@@ -1,4 +1,7 @@
-use super::*;
+use crate::atom::{Atom, AtomType, TableType};
+use crate::constants::NUM_FIRST;
+use crate::error::ParsingError;
+use crate::token::{Token, TokenType};
 
 pub struct Atomizer {
     data: Vec<String>,
@@ -47,10 +50,10 @@ impl Atomizer {
         if self.index == self.tokens.len() - 1 {
             self.is_eof = true;
             self.current_token = Token {
-                begin_char: self.tokens[self.index].begin_char,
-                len_char: self.tokens[self.index].len_char,
-                begin_line: self.tokens[self.index].begin_line,
-                len_line: self.tokens[self.index].len_line,
+                begin_char: self.tokens[self.index].begin_char(),
+                len_char: self.tokens[self.index].len_char(),
+                begin_line: self.tokens[self.index].begin_line(),
+                len_line: self.tokens[self.index].len_line(),
                 token_type: TokenType::Unknown,
             };
         } else {
@@ -58,7 +61,7 @@ impl Atomizer {
             self.current_token = self.tokens[self.index].clone();
         }
 
-        match self.current_token.token_type {
+        match self.current_token.token_type() {
             TokenType::Ignore { comment: _ } => {
                 self.next();
             }
@@ -67,7 +70,7 @@ impl Atomizer {
     }
 
     fn current(&self) -> TokenType {
-        self.current_token.token_type.clone()
+        self.current_token.token_type()
     }
 
     fn parse_bool(&mut self) -> bool {
@@ -342,8 +345,8 @@ impl Atomizer {
         }
     }
 
-    fn parse_func(&mut self) -> Vec<BoolFunc> {
-        let mut result = Vec::<BoolFunc>::new();
+    fn parse_func(&mut self) -> Vec<bool_func_parser::Token> {
+        let mut result = Vec::<bool_func_parser::Token>::new();
 
         // increments on '(' and decrements on ')' should never be -1. Exampel: (a) & b ) is invalid
         let mut count_parentheses = 0;
@@ -357,29 +360,29 @@ impl Atomizer {
         while self.current() != TokenType::Semicolon {
             match self.current() {
                 TokenType::Or => {
-                    result.push(BoolFunc::Or);
+                    result.push(bool_func_parser::Token::Or);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::Xor => {
-                    result.push(BoolFunc::Xor);
+                    result.push(bool_func_parser::Token::Xor);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::And => {
-                    result.push(BoolFunc::And);
+                    result.push(bool_func_parser::Token::And);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::Not => {
-                    result.push(BoolFunc::Not);
+                    result.push(bool_func_parser::Token::Not);
                 }
                 TokenType::RoundOpen => {
-                    result.push(BoolFunc::Open);
+                    result.push(bool_func_parser::Token::Open);
                     count_parentheses += 1;
                 }
                 TokenType::RoundClose => {
-                    result.push(BoolFunc::Close);
+                    result.push(bool_func_parser::Token::Close);
                     if count_parentheses == 0 {
                         // TODO make error
                         unreachable!();
@@ -387,7 +390,7 @@ impl Atomizer {
                     count_parentheses -= 1;
                 }
                 TokenType::Identifier { name } => {
-                    result.push(BoolFunc::Var { name });
+                    result.push(bool_func_parser::Token::Var { name });
                     if last_identifier {
                         // TODO make error
                         unreachable!();
@@ -398,9 +401,9 @@ impl Atomizer {
 
                 TokenType::BoolTable { table: _ } => {
                     if self.parse_bool() {
-                        result.push(BoolFunc::One)
+                        result.push(bool_func_parser::Token::One)
                     } else {
-                        result.push(BoolFunc::Zero)
+                        result.push(bool_func_parser::Token::Zero)
                     }
                     if last_identifier {
                         // TODO make error
@@ -437,6 +440,8 @@ impl Atomizer {
         result
     }
 }
+
+// ---------------------------------------------------------------------- Tests ----------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -476,29 +481,29 @@ mod tests {
 
         let input = atomizer.parse_func();
         // (a|b&d|(c^!1))
-        let output: Vec<BoolFunc> = vec![
-            BoolFunc::Open,
-            BoolFunc::Var {
+        let output: Vec<bool_func_parser::Token> = vec![
+            bool_func_parser::Token::Open,
+            bool_func_parser::Token::Var {
                 name: "a".to_string(),
             },
-            BoolFunc::Or,
-            BoolFunc::Var {
+            bool_func_parser::Token::Or,
+            bool_func_parser::Token::Var {
                 name: "b".to_string(),
             },
-            BoolFunc::And,
-            BoolFunc::Var {
+            bool_func_parser::Token::And,
+            bool_func_parser::Token::Var {
                 name: "d".to_string(),
             },
-            BoolFunc::Or,
-            BoolFunc::Open,
-            BoolFunc::Var {
+            bool_func_parser::Token::Or,
+            bool_func_parser::Token::Open,
+            bool_func_parser::Token::Var {
                 name: "c".to_string(),
             },
-            BoolFunc::Xor,
-            BoolFunc::Not,
-            BoolFunc::One,
-            BoolFunc::Close,
-            BoolFunc::Close,
+            bool_func_parser::Token::Xor,
+            bool_func_parser::Token::Not,
+            bool_func_parser::Token::One,
+            bool_func_parser::Token::Close,
+            bool_func_parser::Token::Close,
         ];
 
         assert_eq!(input.len(), output.len());
@@ -551,11 +556,11 @@ mod tests {
                 AtomType::BoolFunc {
                     in_names: vec!["a".to_string()],
                     func: vec![
-                        BoolFunc::Var {
+                        bool_func_parser::Token::Var {
                             name: "b".to_string(),
                         },
-                        BoolFunc::And,
-                        BoolFunc::Var {
+                        bool_func_parser::Token::And,
+                        bool_func_parser::Token::Var {
                             name: "c".to_string(),
                         },
                     ],

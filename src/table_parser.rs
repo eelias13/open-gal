@@ -1,6 +1,6 @@
+use crate::atom::TableType;
+use crate::constants::COUNT_VERTICAL;
 use std::usize;
-
-use super::*;
 
 pub fn parse(
     in_len: usize,
@@ -131,6 +131,8 @@ fn match_table(vec_2d: Vec<Vec<bool>>, len: usize, init: bool) -> Vec<Vec<bool>>
 
     result
 }
+
+// ---------------------------------------------------------------------- Tests ----------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,6 @@
-use super::*;
+use crate::constants::{AND, NOT, OR, XOR};
+use crate::error::ParsingError;
+use crate::token::{Token, TokenType};
 
 pub struct Lexer {
     data: Vec<String>,
@@ -431,6 +433,8 @@ impl Lexer {
         return false;
     }
 }
+
+// ---------------------------------------------------------------------- Tests ----------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

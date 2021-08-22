@@ -12,7 +12,6 @@ crate-type = ["dylib"]
 
 [dependencies]
 libc = "0.2"
-
 bool-func-parser = { git = "https://github.com/eeli1/bool-func-parser"}
 
 [build-dependencies]
