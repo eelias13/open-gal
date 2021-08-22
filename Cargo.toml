@@ -12,6 +12,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 libc = "0.2"
+bool-func-parser = { git = "https://github.com/eeli1/bool-func-parser"}
 
 [build-dependencies]
-cbindgen = "0.19"
+cbindgen = "0.20"

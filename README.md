@@ -1,4 +1,4 @@
-## open gal
+# open gal
 
 open gal is a compiler that compiles the open gal source code into a jedec file that you can then burn on a [gal](https://en.wikipedia.org/wiki/Generic_array_logic)
 
@@ -18,7 +18,7 @@ ther are 3 types of tabel
 
 1. **full** if you define your table this way you have to consider every possible input e.g.
 
-```
+```#
 table(i0, i1 -> and) {
     00 0
     01 0
@@ -31,7 +31,7 @@ Note that every possibility of the input variable (`i0` and `i1`) is represented
 
 2. **fill** if you define your table this way you every possibility you don't specify gets automatically assigned to the value in the fill (`.fill(0)` => 0) e.g.
 
-```
+```#
 table(i0, i1 -> and).fill(0) {
     11 1
 }
@@ -41,7 +41,7 @@ Note this table has the same effect as the table in _1_
 
 3. **count** if you define your table this way you have to specify the "right" side of the table but it is important that you don't mix up the order and define every possible output e.g.
 
-```
+```#
 table(i0, i1 -> and).count {
     0
     0
