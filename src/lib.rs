@@ -1,6 +1,5 @@
 mod atom;
 mod atomizer;
-mod c_interface;
 mod constants;
 mod error;
 mod lexer;
@@ -8,6 +7,6 @@ mod parser;
 mod table_parser;
 mod token;
 mod utils;
+mod table_data;
 
-pub use c_interface::*;
 pub use parser::*;

@@ -2,6 +2,7 @@ use crate::atom::Atom;
 use crate::token::*;
 use std::fmt;
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct ParsingError {
     begin_line: usize,
     begin_char: usize,
@@ -77,7 +78,15 @@ impl ParsingError {
     }
 }
 
+/*
 impl fmt::Debug for ParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+*/
+
+impl fmt::Display for ParsingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut line = String::new();
         for i in self.begin_line..(self.begin_line + self.len_line - 1) {

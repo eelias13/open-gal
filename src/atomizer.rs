@@ -72,23 +72,23 @@ impl Atomizer {
         self.current_token.token_type()
     }
 
-    fn parse_bool(&mut self) -> bool {
+    fn parse_bool(&mut self) -> Result<bool, ParsingError> {
         match self.current() {
             TokenType::BoolTable { table } => {
                 if table.len() != 1 {
                     // TODO make error
-                    ParsingError::from_token(
+                    let err = ParsingError::from_token(
                         self.current_token.clone(),
                         format!("expected <1> boolean got <{}>", table.len()),
                         self.data.clone(),
                     );
-                    unreachable!();
+                    return Err(err);
                 } else {
-                    table[0]
+                    Ok(table[0])
                 }
             }
             _ => {
-                self.expect(TokenType::BoolTable { table: Vec::new() });
+                self.expect(TokenType::BoolTable { table: Vec::new() })?;
                 unreachable!();
             }
         }
@@ -276,7 +276,7 @@ impl Atomizer {
                 TokenType::Fill => {
                     self.expect(TokenType::Fill)?;
                     self.expect(TokenType::RoundOpen)?;
-                    let value = self.parse_bool();
+                    let value = self.parse_bool()?;
                     self.next();
                     self.expect(TokenType::RoundClose)?;
 
@@ -408,7 +408,7 @@ impl Atomizer {
                 }
 
                 TokenType::BoolTable { table: _ } => {
-                    if self.parse_bool() {
+                    if self.parse_bool()? {
                         result.push(bool_func_parser::Token::One)
                     } else {
                         result.push(bool_func_parser::Token::Zero)
@@ -430,8 +430,7 @@ impl Atomizer {
                             name: String::new(),
                         },
                         TokenType::BoolTable { table: Vec::new() },
-                    ]);
-                    unreachable!();
+                    ])?;
                 }
             }
             self.next();

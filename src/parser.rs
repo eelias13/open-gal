@@ -2,7 +2,7 @@ use crate::atom::{AtomType, TableType};
 use crate::atomizer::Atomizer;
 use crate::error::ParsingError;
 use crate::lexer::Lexer;
-use crate::TableData;
+use crate::table_data::TableData;
 use std::{collections::HashMap, u32};
 
 pub fn parse(data: Vec<String>) -> Result<Vec<TableData>, ParsingError> {
