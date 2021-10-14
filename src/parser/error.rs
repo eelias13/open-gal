@@ -1,5 +1,5 @@
-use crate::atom::Atom;
-use crate::token::*;
+use crate::parser::atom::Atom;
+use crate::parser::token::*;
 use std::fmt;
 
 #[derive(PartialEq, Debug, Clone)]

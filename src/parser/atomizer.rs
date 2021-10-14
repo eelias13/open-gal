@@ -1,7 +1,7 @@
-use crate::atom::{Atom, AtomType, TableType};
 use crate::constants::NUM_FIRST;
-use crate::error::ParsingError;
-use crate::token::{Token, TokenType};
+use crate::parser::atom::{Atom, AtomType, TableType};
+use crate::parser::error::ParsingError;
+use crate::parser::token::{Token, TokenType};
 
 pub struct Atomizer {
     data: Vec<String>,

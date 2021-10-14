@@ -1,6 +1,6 @@
 use crate::constants::{AND, NOT, OR, XOR};
-use crate::error::ParsingError;
-use crate::token::{Token, TokenType};
+use crate::parser::error::ParsingError;
+use crate::parser::token::{Token, TokenType};
 
 pub struct Lexer {
     data: Vec<String>,

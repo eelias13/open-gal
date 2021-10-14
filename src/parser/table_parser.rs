@@ -1,4 +1,4 @@
-use crate::atom::TableType;
+use crate::parser::atom::TableType;
 use crate::constants::COUNT_VERTICAL;
 use std::usize;
 

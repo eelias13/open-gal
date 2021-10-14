@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::parser::token::Token;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum AtomType {

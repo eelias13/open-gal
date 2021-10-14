@@ -1,7 +1,7 @@
-use crate::atom::{AtomType, TableType};
-use crate::atomizer::Atomizer;
-use crate::error::ParsingError;
-use crate::lexer::Lexer;
+use crate::parser::atom::{AtomType, TableType};
+use crate::parser::atomizer::Atomizer;
+use crate::parser::error::ParsingError;
+use crate::parser::lexer::Lexer;
 use crate::table_data::TableData;
 use std::{collections::HashMap, u32};
 
@@ -123,11 +123,15 @@ fn parse_table(
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<TableData>, String> {
     let mut result = Vec::new();
-    let table_2d =
-        match crate::table_parser::parse(in_names.len(), out_names.len(), table, table_type) {
-            Ok(t) => t,
-            Err(msg) => return Err(msg),
-        };
+    let table_2d = match crate::parser::table_parser::parse(
+        in_names.len(),
+        out_names.len(),
+        table,
+        table_type,
+    ) {
+        Ok(t) => t,
+        Err(msg) => return Err(msg),
+    };
     let output_pins = match get_pins(out_names.clone(), pin_map, used_pin) {
         Ok(pins) => pins,
         Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),

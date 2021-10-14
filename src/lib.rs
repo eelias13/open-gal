@@ -1,6 +1,8 @@
 mod constants;
 mod parser;
-mod utils;
 mod table_data;
 
-pub use parser::*;
+pub use table_data::TableData;
+pub fn parse(data: Vec<String>) -> Vec<TableData> {
+    parser::core::parse(data).unwrap()
+}
