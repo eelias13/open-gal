@@ -6,7 +6,7 @@ extern crate libc;
 #[no_mangle]
 pub unsafe extern "C" fn parse_file(input: *mut std::os::raw::c_char) -> TransferTableDataArr {
     let data = utils::read_file(char_ptr_2_str(input).as_str());
-    let table_data = parser::parse(data);
+    let table_data = parser::parse(data).unwrap();
     convert_vec_table_data(table_data)
 }
 

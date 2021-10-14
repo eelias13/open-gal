@@ -1,5 +1,6 @@
 use crate::atom::Atom;
 use crate::token::*;
+use std::fmt;
 
 pub struct ParsingError {
     begin_line: usize,
@@ -74,8 +75,10 @@ impl ParsingError {
             data,
         })
     }
+}
 
-    pub fn panic(self) {
+impl fmt::Debug for ParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut line = String::new();
         for i in self.begin_line..(self.begin_line + self.len_line - 1) {
             println!("begin {} len {}", self.begin_line, self.len_line);
@@ -91,12 +94,13 @@ impl ParsingError {
         line.push('\n');
         line.push_str(under.as_str());
 
-        panic!(
+        write!(
+            f,
             "{} \n{} at line <{}> at index <{}>",
             line,
             self.msg,
             self.begin_line + 1,
             self.begin_char
-        );
+        )
     }
 }

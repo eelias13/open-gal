@@ -5,13 +5,13 @@ use crate::lexer::Lexer;
 use crate::TableData;
 use std::{collections::HashMap, u32};
 
-pub fn parse(data: Vec<String>) -> Vec<TableData> {
+pub fn parse(data: Vec<String>) -> Result<Vec<TableData>, ParsingError> {
     let mut result = Vec::new();
 
     let mut lexer = Lexer::new(data.clone());
-    let tokens = lexer.lex();
+    let tokens = lexer.lex()?;
     let mut atomizer = Atomizer::new(data.clone(), tokens);
-    let atoms = atomizer.atomize();
+    let atoms = atomizer.atomize()?;
 
     let mut pin_map: HashMap<String, u32> = HashMap::new();
     let mut used_pin = Vec::new();
@@ -23,8 +23,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
                 Ok(()) => (),
                 Err(msg) => {
                     let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
+                    return Err(err);
                 }
             },
             AtomType::Table {
@@ -43,8 +42,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
                 Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
                 Err(msg) => {
                     let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
+                    return Err(err);
                 }
             },
             AtomType::BoolFunc { in_names, func } => {
@@ -52,8 +50,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
                     Ok(table_data) => table_data.iter().for_each(|td| result.push(td.clone())),
                     Err(msg) => {
                         let err = ParsingError::from_atom(atom, msg, data);
-                        err.panic();
-                        unreachable!()
+                        return Err(err);
                     }
                 }
             }
@@ -61,8 +58,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
                 Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
                 Err(msg) => {
                     let err = ParsingError::from_atom(atom, msg, data);
-                    err.panic();
-                    unreachable!()
+                    return Err(err);
                 }
             },
         };
@@ -82,7 +78,7 @@ pub fn parse(data: Vec<String>) -> Vec<TableData> {
         }
     }
 
-    result
+    Ok(result)
 }
 
 fn parse_func(
@@ -272,7 +268,7 @@ mod tests {
             "a.dff;",
         ];
 
-        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect());
+        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect()).unwrap();
         let output = vec![
             TableData {
                 input_pins: vec![13, 11],
@@ -331,7 +327,7 @@ mod tests {
             "    10",
             "}",
         ];
-        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect());
+        let input = parse(data.iter().map(|l| format!("{}\n", l)).collect()).unwrap();
         let output = vec![
             TableData {
                 input_pins: vec![1, 2],
