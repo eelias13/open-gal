@@ -65,23 +65,8 @@ impl Token {
     }
 }
 
+#[cfg(test)]
 impl Token {
-    pub fn new(
-        begin_line: usize,
-        begin_char: usize,
-        len_char: usize,
-        len_line: usize,
-        token_type: TokenType,
-    ) -> Self {
-        Self {
-            begin_line,
-            begin_char,
-            len_char,
-            len_line,
-            token_type,
-        }
-    }
-
     pub fn vec(vec2d: Vec<Vec<TokenType>>) -> Vec<Self> {
         let mut result = Vec::new();
 

@@ -10,10 +10,10 @@ pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, ParsingError> {
 
     let data: Vec<String> = data.iter().map(|line| format!("{}\n", line)).collect();
 
-    let mut lexer = Lexer::new(data.clone());
+    let mut lexer = Lexer::new(&data);
     let tokens = lexer.lex()?;
 
-    let mut atomizer = Atomizer::new(data.clone(), tokens);
+    let mut atomizer = Atomizer::new(&data, &tokens);
     let atoms = atomizer.atomize()?;
 
     let mut pin_map: HashMap<String, u32> = HashMap::new();
@@ -57,7 +57,7 @@ pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, ParsingError> {
                     }
                 }
             }
-            AtomType::Dff { names } => match get_pins(names, &mut pin_map, &mut used_pin) {
+            AtomType::Dff { names } => match get_pins(&names, &mut pin_map, &mut used_pin) {
                 Ok(pins) => pins.iter().for_each(|&p| is_dff.push(p)),
                 Err(msg) => {
                     let err = ParsingError::from_atom(atom, msg, data);
@@ -91,7 +91,7 @@ fn parse_func(
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<TableData>, String> {
     let mut result = Vec::new();
-    let output_pins = match get_pins(in_names, pin_map, used_pin) {
+    let output_pins = match get_pins(&in_names, pin_map, used_pin) {
         Ok(pins) => pins,
         Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
     };
@@ -99,7 +99,7 @@ fn parse_func(
     for output_pin in output_pins {
         if let Some(table) = bool_func_parser::parse(&func) {
             let in_names = bool_func_parser::get_names(&func);
-            let input_pins = match get_pins(in_names, pin_map, used_pin) {
+            let input_pins = match get_pins(&in_names, pin_map, used_pin) {
                 Ok(pins) => pins,
                 Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
             };
@@ -135,7 +135,7 @@ fn parse_table(
         Ok(t) => t,
         Err(msg) => return Err(msg),
     };
-    let output_pins = match get_pins(out_names.clone(), pin_map, used_pin) {
+    let output_pins = match get_pins(&out_names, pin_map, used_pin) {
         Ok(pins) => pins,
         Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
     };
@@ -149,7 +149,7 @@ fn parse_table(
     }
 
     for i in 0..table_2d.len() {
-        let input_pins = match get_pins(in_names.clone(), pin_map, used_pin) {
+        let input_pins = match get_pins(&in_names, pin_map, used_pin) {
             Ok(pins) => pins,
             Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
         };
@@ -164,13 +164,13 @@ fn parse_table(
 }
 
 fn get_pins(
-    names: Vec<String>,
+    names: &Vec<String>,
     pin_map: &mut HashMap<String, u32>,
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<u32>, String> {
     let mut pins = Vec::new();
     for name in names {
-        if let Some(&pin) = pin_map.get(&name) {
+        if let Some(&pin) = pin_map.get(name) {
             pins.push(pin);
             let mut is_used = false;
             for p in used_pin.clone() {
@@ -184,7 +184,7 @@ fn get_pins(
                 used_pin.push(pin);
             }
         } else {
-            return Err(name);
+            return Err(name.to_string());
         }
     }
     Ok(pins)
@@ -226,5 +226,3 @@ fn set_pins(
 
     Ok(())
 }
-
-

@@ -2,8 +2,8 @@ use crate::constants::{AND, NOT, OR, XOR};
 use crate::parser::error::ParsingError;
 use crate::parser::token::{Token, TokenType};
 
-pub struct Lexer {
-    data: Vec<String>,
+pub struct Lexer<'a> {
+    data: &'a Vec<String>,
     line_index: usize,
     char_index: usize,
     current_line: String,
@@ -13,8 +13,8 @@ pub struct Lexer {
     eol: bool, // end of line by last char
 }
 
-impl Lexer {
-    pub fn new(data: Vec<String>) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(data: &'a Vec<String>) -> Self {
         let current_line = data[0].clone();
         if let Some(current_char) = current_line.clone().chars().nth(0) {
             Self {
@@ -445,7 +445,8 @@ mod tests {
 
     #[test]
     fn test_num() {
-        let mut lexer = Lexer::new(convert(vec!["123 010", "102 2 349645", "1 0 101 11"]));
+        let data = convert(vec!["123 010", "102 2 349645", "1 0 101 11"]);
+        let mut lexer = Lexer::new(&data);
         let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
@@ -488,15 +489,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn panic_num() {
-        let mut lexer = Lexer::new(convert(vec!["0103"]));
-        let _ = lexer.lex().unwrap();
+        let data = convert(vec!["0103"]);
+        let mut lexer = Lexer::new(&data);
+        assert_eq!(
+            lexer.lex(),
+            Err(ParsingError::new(
+                0,
+                0,
+                3,
+                1,
+                "expectet <0, 1> got <3>".to_string(),
+                data
+            ))
+        );
     }
 
     #[test]
     fn lexer_next() {
-        let input = convert(vec![
+        let data = convert(vec![
             "this is line one",
             "abc",
             "",
@@ -504,9 +515,9 @@ mod tests {
             "123 010",
             "102 2 349645",
         ]);
-        let mut lexer = Lexer::new(input.clone());
+        let mut lexer = Lexer::new(&data);
 
-        for (index, str_in) in input.iter().enumerate() {
+        for (index, str_in) in data.iter().enumerate() {
             assert_eq!(index, lexer.line_index, "line_index");
             assert_eq!(str_in, &lexer.current_line);
 
@@ -538,13 +549,14 @@ mod tests {
 
     #[test]
     fn chars() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             format!("{}{}", AND, OR).as_ref(),
             format!("{}{}{}{}", XOR, XOR, NOT, AND).as_ref(),
             "([",
             "{ ; }])",
             ".,==.,",
-        ]));
+        ]);
+        let mut lexer = Lexer::new(&data);
 
         let input = lexer.lex().unwrap();
         let output = Token::vec(vec![
@@ -598,11 +610,12 @@ mod tests {
 
     #[test]
     fn doc_example() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "pin in = 2;",
             "",
             format!("{}1010 // comment", AND).as_ref(),
-        ]));
+        ]);
+        let mut lexer = Lexer::new(&data);
         let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
@@ -641,7 +654,8 @@ mod tests {
 
     #[test]
     fn test_arrow() {
-        let mut lexer = Lexer::new(convert(vec![" ->"]));
+        let data = convert(vec![" ->"]);
+        let mut lexer = Lexer::new(&data);
         let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![vec![
@@ -658,13 +672,14 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "ab ab3",
             "c_f_g ",
             "pin table fill.count",
             "pin1",
             "dff",
-        ]));
+        ]);
+        let mut lexer = Lexer::new(&data);
         let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
@@ -711,13 +726,14 @@ mod tests {
     }
     #[test]
     fn test_comments() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "// one line comment",
             "",
             "/*",
             "multi line comment",
             "*/",
-        ]));
+        ]);
+        let mut lexer = Lexer::new(&data);
         let input = lexer.lex().unwrap();
 
         let mut output = Vec::<Token>::new();

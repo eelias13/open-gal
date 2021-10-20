@@ -13,6 +13,26 @@ pub struct ParsingError {
 }
 
 impl ParsingError {
+    
+    #[cfg(test)]
+    pub fn new(
+        begin_line: usize,
+        begin_char: usize,
+        len_char: usize,
+        len_line: usize,
+        msg: String,
+        data: Vec<String>,
+    ) -> Self {
+        Self {
+            begin_line,
+            begin_char,
+            len_char,
+            len_line,
+            msg,
+            data,
+        }
+    }
+
     pub fn from_token(token: Token, msg: String, data: Vec<String>) -> Self {
         Self {
             begin_line: token.begin_line(),

@@ -3,20 +3,20 @@ use crate::parser::atom::{Atom, AtomType, TableType};
 use crate::parser::error::ParsingError;
 use crate::parser::token::{Token, TokenType};
 
-pub struct Atomizer {
-    data: Vec<String>,
-    tokens: Vec<Token>,
+pub struct Atomizer<'a> {
+    data: &'a Vec<String>,
+    tokens: &'a Vec<Token>,
     index: usize,
     atoms: Vec<Atom>,
     current_token: Token,
     is_eof: bool,
 }
 
-impl Atomizer {
-    pub fn new(data: Vec<String>, tokens: Vec<Token>) -> Self {
+impl<'a> Atomizer<'a> {
+    pub fn new(data: &'a Vec<String>, tokens: &'a Vec<Token>) -> Self {
         Atomizer {
             data,
-            tokens: tokens.clone(),
+            tokens,
             index: 0,
             atoms: Vec::<Atom>::new(),
             current_token: tokens[0].clone(),
@@ -484,7 +484,7 @@ mod tests {
             TokenType::Semicolon,
         ]]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
         let input = atomizer.parse_func().unwrap();
         // (a|b&d|(c^!1))
@@ -552,7 +552,7 @@ mod tests {
                 TokenType::Ignore { comment: None },
             ],
         ]);
-        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
         let input = atomizer.atomize().unwrap();
         let output = vec![
@@ -620,7 +620,7 @@ mod tests {
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data,& tokens);
 
         let mut input = atomizer.parse_identifiers().unwrap();
         let mut output = vec!["a", "b", "c"];
@@ -666,7 +666,7 @@ mod tests {
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
         let mut input = atomizer.parse_num().unwrap();
         let mut output = vec![1, 2, 3, 10];
@@ -701,7 +701,7 @@ mod tests {
             TokenType::Ignore { comment: None },
         ]]);
 
-        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let mut atomizer = Atomizer::new(&data, &tokens);
         let input = atomizer.atomize().unwrap();
         assert_eq!(input.len(), 1);
         assert_eq!(
@@ -797,7 +797,7 @@ mod tests {
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let mut atomizer = Atomizer::new(&data, &tokens);
         let input = atomizer.atomize().unwrap();
         assert_eq!(input.len(), 1);
         assert_eq!(

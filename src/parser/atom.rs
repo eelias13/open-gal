@@ -56,14 +56,6 @@ impl Atom {
         self.begin_line
     }
 
-    pub fn begin_token(&self) -> usize {
-        self.begin_token
-    }
-
-    pub fn len_token(&self) -> usize {
-        self.len_token
-    }
-
     pub fn atom_type(&self) -> AtomType {
         self.atom_type.clone()
     }
