@@ -28,19 +28,6 @@ pub enum TableType {
     Count,
 }
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub enum BoolFunc {
-    And,
-    Or,
-    Xor,
-    Not,
-    Var { name: String },
-    One,
-    Zero,
-    Open,
-    Close,
-}
-
 #[derive(PartialEq, Debug, Clone)]
 pub struct Atom {
     pub begin_char: usize,
