@@ -2,9 +2,9 @@ use crate::constants::*;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
-    Number { value: u64 },
-    BoolTable { table: Vec<bool> },
-    Identifier { name: String },
+    Number(u64),
+    BoolTable(Vec<bool>),
+    Identifier(String),
 
     Pin,   // pin
     Table, // table
@@ -29,9 +29,9 @@ pub enum TokenType {
     RoundClose,  // )
     SquareClose, // ]
 
-    Arrow,                              // ->
-    Unknown,                            // ?
-    Ignore { comment: Option<String> }, // _
+    Arrow,                  // ->
+    Unknown,                // ?
+    Ignore(Option<String>), // _
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -82,11 +82,11 @@ impl Token {
                     TokenType::Table => 5,
                     TokenType::Dff => 3,
 
-                    TokenType::Number { value } => value.clone().to_string().len(),
-                    TokenType::BoolTable { table } => table.len(),
-                    TokenType::Identifier { name } => name.len(),
+                    TokenType::Number(value) => value.clone().to_string().len(),
+                    TokenType::BoolTable(table) => table.len(),
+                    TokenType::Identifier(name) => name.len(),
 
-                    TokenType::Ignore { comment } => {
+                    TokenType::Ignore(comment) => {
                         if let Some(c) = comment {
                             c.len()
                         } else {
@@ -115,9 +115,9 @@ impl Token {
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.token_type {
-            TokenType::BoolTable { table } => write!(f, "{:?}", table),
-            TokenType::Identifier { name } => write!(f, "{}", name),
-            TokenType::Number { value } => write!(f, "{}", value),
+            TokenType::BoolTable(table) => write!(f, "{:?}", table),
+            TokenType::Identifier(name) => write!(f, "{}", name),
+            TokenType::Number(value) => write!(f, "{}", value),
 
             TokenType::Pin => write!(f, "pin"),
             TokenType::Table => write!(f, "tabel"),
@@ -145,7 +145,7 @@ impl std::fmt::Display for Token {
 
             TokenType::Arrow => write!(f, "->"),
             TokenType::Unknown => write!(f, "?"),
-            TokenType::Ignore { comment } => {
+            TokenType::Ignore(comment) => {
                 if let Some(c) = comment {
                     write!(f, "{}", c)
                 } else {

@@ -13,7 +13,6 @@ pub struct ParsingError {
 }
 
 impl ParsingError {
-    
     #[cfg(test)]
     pub fn new(
         begin_line: usize,
@@ -60,20 +59,20 @@ impl ParsingError {
         for tt in expect.clone() {
             // ther has to be an easyer way can not use equal because of value feald
             match tt {
-                TokenType::Identifier { name: _ } => match got_type {
-                    TokenType::Identifier { name: _ } => {
+                TokenType::Identifier(_) => match got_type {
+                    TokenType::Identifier(_) => {
                         return None;
                     }
                     _ => {}
                 },
-                TokenType::BoolTable { table: _ } => match got_type {
-                    TokenType::BoolTable { table: _ } => {
+                TokenType::BoolTable(_) => match got_type {
+                    TokenType::BoolTable(_) => {
                         return None;
                     }
                     _ => {}
                 },
-                TokenType::Number { value: _ } => match got_type {
-                    TokenType::Number { value: _ } => {
+                TokenType::Number(_) => match got_type {
+                    TokenType::Number(_) => {
                         return None;
                     }
                     _ => {}

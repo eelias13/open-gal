@@ -23,7 +23,7 @@ pub enum AtomType {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TableType {
-    Fill { value: bool },
+    Fill(bool),
     Full,
     Count,
 }

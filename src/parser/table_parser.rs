@@ -1,5 +1,5 @@
-use crate::parser::atom::TableType;
 use crate::constants::COUNT_VERTICAL;
+use crate::parser::atom::TableType;
 use std::usize;
 
 pub fn parse(
@@ -10,7 +10,7 @@ pub fn parse(
 ) -> Result<Vec<Vec<bool>>, String> {
     match table_type {
         TableType::Count => parse_count(in_len, out_len, table),
-        TableType::Fill { value } => parse_fill(in_len, out_len, table, value),
+        TableType::Fill(value) => parse_fill(in_len, out_len, table, value),
         TableType::Full => parse_full(in_len, out_len, table),
     }
 }

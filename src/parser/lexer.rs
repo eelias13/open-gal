@@ -195,9 +195,7 @@ impl<'a> Lexer<'a> {
             begin_char,
             len_char: comment.len(),
             len_line: self.line_index - begin_line + 1,
-            token_type: TokenType::Ignore {
-                comment: Some(comment),
-            },
+            token_type: TokenType::Ignore(Some(comment)),
         });
         Ok(true)
     }
@@ -228,7 +226,7 @@ impl<'a> Lexer<'a> {
             "count" => TokenType::Count,
             "fill" => TokenType::Fill,
             "dff" => TokenType::Dff,
-            _ => TokenType::Identifier { name: name.clone() },
+            _ => TokenType::Identifier(name.clone()),
         };
 
         self.tokens.push(Token {
@@ -304,7 +302,7 @@ impl<'a> Lexer<'a> {
                                 begin_line: self.line_index,
                                 len_char: num_chars.len(),
                                 len_line: 1,
-                                token_type: TokenType::BoolTable { table: Vec::new() },
+                                token_type: TokenType::BoolTable(Vec::new()),
                             },
                             format!("expectet <0, 1> got <{}>", self.current_char),
                             self.data.clone(),
@@ -329,9 +327,7 @@ impl<'a> Lexer<'a> {
                 begin_line: self.line_index,
                 len_char: num_chars.len(),
                 len_line: 1,
-                token_type: TokenType::BoolTable {
-                    table: num_chars.chars().map(|c| c == '1').collect(),
-                },
+                token_type: TokenType::BoolTable(num_chars.chars().map(|c| c == '1').collect()),
             });
 
             Ok(true)
@@ -348,7 +344,7 @@ impl<'a> Lexer<'a> {
                         begin_line: self.line_index,
                         len_char: num_chars.len(),
                         len_line: 1,
-                        token_type: TokenType::Number { value: 0 },
+                        token_type: TokenType::Number(0),
                     },
                     format!(
                         "parsing error while parsing number expectet <[0-9]> got <{}>",
@@ -364,9 +360,7 @@ impl<'a> Lexer<'a> {
                 begin_line: self.line_index,
                 len_char: num_chars.len(),
                 len_line: 1,
-                token_type: TokenType::Number {
-                    value: num_str.parse().unwrap(),
-                },
+                token_type: TokenType::Number(num_str.parse().unwrap()),
             });
 
             Ok(true)
@@ -392,9 +386,9 @@ impl<'a> Lexer<'a> {
             '=' => Some(TokenType::Equals),
             '.' => Some(TokenType::Dot),
 
-            ' ' => Some(TokenType::Ignore { comment: None }),
-            '\t' => Some(TokenType::Ignore { comment: None }),
-            '\n' => Some(TokenType::Ignore { comment: None }),
+            ' ' => Some(TokenType::Ignore(None)),
+            '\t' => Some(TokenType::Ignore(None)),
+            '\n' => Some(TokenType::Ignore(None)),
 
             _ => None,
         };
@@ -451,34 +445,28 @@ mod tests {
 
         let output = Token::vec(vec![
             vec![
-                TokenType::Number { value: 123 },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![false, true, false],
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Number(123),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false, true, false]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Number { value: 102 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 349645 },
-                TokenType::Ignore { comment: None },
+                TokenType::Number(102),
+                TokenType::Ignore(None),
+                TokenType::Number(2),
+                TokenType::Ignore(None),
+                TokenType::Number(349645),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::BoolTable { table: vec![true] },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![false] },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, false, true],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, true],
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::BoolTable(vec![true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, false, true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, true]),
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -560,32 +548,28 @@ mod tests {
 
         let input = lexer.lex().unwrap();
         let output = Token::vec(vec![
-            vec![
-                TokenType::And,
-                TokenType::Or,
-                TokenType::Ignore { comment: None },
-            ],
+            vec![TokenType::And, TokenType::Or, TokenType::Ignore(None)],
             vec![
                 TokenType::Xor,
                 TokenType::Xor,
                 TokenType::Not,
                 TokenType::And,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::RoundOpen,
                 TokenType::SquareOpen,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::CurlyOpen,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::CurlyClose,
                 TokenType::SquareClose,
                 TokenType::RoundClose,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::Dot,
@@ -594,7 +578,7 @@ mod tests {
                 TokenType::Equals,
                 TokenType::Dot,
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -621,28 +605,22 @@ mod tests {
         let output = Token::vec(vec![
             vec![
                 TokenType::Pin,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "in".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::Identifier("in".to_string()),
+                TokenType::Ignore(None),
                 TokenType::Equals,
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
+                TokenType::Ignore(None),
+                TokenType::Number(2),
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
-            vec![TokenType::Ignore { comment: None }],
+            vec![TokenType::Ignore(None)],
             vec![
                 TokenType::And,
-                TokenType::BoolTable {
-                    table: vec![true, false, true, false],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Ignore {
-                    comment: Some("// comment".to_string()),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::BoolTable(vec![true, false, true, false]),
+                TokenType::Ignore(None),
+                TokenType::Ignore(Some("// comment".to_string())),
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -659,9 +637,9 @@ mod tests {
         let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![vec![
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
             TokenType::Arrow,
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
         ]]);
 
         assert_eq!(input.len(), output.len());
@@ -684,39 +662,31 @@ mod tests {
 
         let output = Token::vec(vec![
             vec![
-                TokenType::Identifier {
-                    name: "ab".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "ab3".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("ab".to_string()),
+                TokenType::Ignore(None),
+                TokenType::Identifier("ab3".to_string()),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Identifier {
-                    name: "c_f_g".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("c_f_g".to_string()),
+                TokenType::Ignore(None),
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::Pin,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Table,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Fill,
                 TokenType::Dot,
                 TokenType::Count,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Identifier {
-                    name: "pin1".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("pin1".to_string()),
+                TokenType::Ignore(None),
             ],
-            vec![TokenType::Dff, TokenType::Ignore { comment: None }],
+            vec![TokenType::Dff, TokenType::Ignore(None)],
         ]);
 
         assert_eq!(input.len(), output.len());
@@ -743,16 +713,14 @@ mod tests {
             begin_char: 0,
             len_char: "// one line comment".len(),
             len_line: 1,
-            token_type: TokenType::Ignore {
-                comment: Some("// one line comment".to_string()),
-            },
+            token_type: TokenType::Ignore(Some("// one line comment".to_string())),
         });
         output.push(Token {
             begin_line: 0,
             begin_char: "// one line comment".len(),
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         output.push(Token {
@@ -760,7 +728,7 @@ mod tests {
             begin_char: 0,
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         output.push(Token {
@@ -768,9 +736,7 @@ mod tests {
             begin_char: 0,
             len_char: "/*\nmulti line comment\n*/".len(),
             len_line: 3,
-            token_type: TokenType::Ignore {
-                comment: Some("/*\nmulti line comment\n*/".to_string()),
-            },
+            token_type: TokenType::Ignore(Some("/*\nmulti line comment\n*/".to_string())),
         });
 
         output.push(Token {
@@ -778,7 +744,7 @@ mod tests {
             begin_char: 2,
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         assert_eq!(input.len(), output.len());
