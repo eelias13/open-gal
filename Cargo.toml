@@ -5,4 +5,4 @@ authors = ["eeli1 <maierelias13@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bool-func-parser = { git = "https://github.com/eeli1/bool-func-parser" }
+bool-func-parser = { git = "https://github.com/eeli1/bool-func-parser", branch = "dev"}

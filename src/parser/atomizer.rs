@@ -394,7 +394,7 @@ impl<'a> Atomizer<'a> {
                     count_parentheses -= 1;
                 }
                 TokenType::Identifier(name) => {
-                    result.push(bool_func_parser::Token::Var { name });
+                    result.push(bool_func_parser::Token::Var(name));
                     if last_identifier {
                         // TODO make error
                         unreachable!();
@@ -476,22 +476,14 @@ mod tests {
         // (a|b&d|(c^!1))
         let output: Vec<bool_func_parser::Token> = vec![
             bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var {
-                name: "a".to_string(),
-            },
+            bool_func_parser::Token::Var("a".to_string()),
             bool_func_parser::Token::Or,
-            bool_func_parser::Token::Var {
-                name: "b".to_string(),
-            },
+            bool_func_parser::Token::Var("b".to_string()),
             bool_func_parser::Token::And,
-            bool_func_parser::Token::Var {
-                name: "d".to_string(),
-            },
+            bool_func_parser::Token::Var("d".to_string()),
             bool_func_parser::Token::Or,
             bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var {
-                name: "c".to_string(),
-            },
+            bool_func_parser::Token::Var("c".to_string()),
             bool_func_parser::Token::Xor,
             bool_func_parser::Token::Not,
             bool_func_parser::Token::One,
@@ -541,13 +533,9 @@ mod tests {
                 AtomType::BoolFunc {
                     in_names: vec!["a".to_string()],
                     func: vec![
-                        bool_func_parser::Token::Var {
-                            name: "b".to_string(),
-                        },
+                        bool_func_parser::Token::Var("b".to_string()),
                         bool_func_parser::Token::And,
-                        bool_func_parser::Token::Var {
-                            name: "c".to_string(),
-                        },
+                        bool_func_parser::Token::Var("c".to_string()),
                     ],
                 },
             ),

@@ -97,7 +97,7 @@ fn parse_func(
     };
 
     for output_pin in output_pins {
-        if let Some(table) = bool_func_parser::parse(&func) {
+        if let Ok(table) = bool_func_parser::parse(&func) {
             let in_names = bool_func_parser::get_names(&func);
             let input_pins = match get_pins(&in_names, pin_map, used_pin) {
                 Ok(pins) => pins,

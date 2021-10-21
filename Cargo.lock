@@ -5,7 +5,7 @@ version = 3
 [[package]]
 name = "bool-func-parser"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/bool-func-parser#194d0b626f71cfa9c39537b869ef1ea9e849fa3e"
+source = "git+https://github.com/eeli1/bool-func-parser?branch=dev#32cc58835cdedc6614cc36f19ee1a0aa35b5e208"
 
 [[package]]
 name = "open-gal"
