@@ -13,7 +13,7 @@ impl Pin {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Row {
     pub pins: Vec<Pin>,
 }
@@ -28,6 +28,17 @@ impl Row {
         }
 
         Self { pins }
+    }
+}
+
+impl PartialEq for Row {
+    fn eq(&self, other: &Row) -> bool {
+        for pin in self.pins.clone() {
+            if !other.pins.contains(&pin) {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -140,29 +151,78 @@ mod tests {
             vec![(13, 42)],
         );
 
-        let table_data = vec![TableData::new(
-            vec![3, 2],
-            23,
-            //   00    01     10     11
-            vec![true, true, false, true],
-            true,
-        )];
+        let table_data = vec![
+            TableData::new(
+                vec![3, 2],
+                23,
+                //   00    01     10     11
+                vec![true, true, false, true],
+                true,
+            ),
+            TableData::new(vec![10, 11], 23, vec![false, false, true, false], true),
+            TableData::new(vec![10, 11], 17, vec![false, false, false, true], false),
+            TableData::new(vec![10, 11], 19, vec![false, true, true, false], false),
+            TableData::new(vec![10, 11], 18, vec![false, true, true, true], false),
+        ];
 
-        let expressions = vec![Expression {
-            out_pin: 23,
-            enable_flip_flop: true,
-            rows: vec![
-                Row {
-                    pins: vec![Pin::new(true, 3), Pin::new(true, 2)],
-                },
-                Row {
-                    pins: vec![Pin::new(false, 3), Pin::new(true, 2)],
-                },
-                Row {
-                    pins: vec![Pin::new(false, 3), Pin::new(false, 2)],
-                },
-            ],
-        }];
+        let expressions = vec![
+            Expression {
+                out_pin: 23,
+                enable_flip_flop: true,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 3), Pin::new(true, 2)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 3), Pin::new(true, 2)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 3), Pin::new(false, 2)],
+                    },
+                ],
+            },
+            Expression {
+                out_pin: 23,
+                enable_flip_flop: true,
+                rows: vec![Row {
+                    pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                }],
+            },
+            Expression {
+                out_pin: 17,
+                enable_flip_flop: false,
+                rows: vec![Row {
+                    pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                }],
+            },
+            Expression {
+                out_pin: 19,
+                enable_flip_flop: false,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    },
+                ],
+            },
+            Expression {
+                out_pin: 18,
+                enable_flip_flop: false,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                    },
+                ],
+            },
+        ];
 
         for i in 0..table_data.len() {
             assert_eq!(

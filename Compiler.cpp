@@ -141,11 +141,29 @@ int main(int argc, char *argv[])
 	vector<json> json_vec{R"(
     {
       "dff": true,
-      "inputPins": [3, 2],
+      "inputPins": [10, 11],
       "outputPin": 23,
       "table": [false, false, true, false]
     }
-)"_json};
+)"_json,
+						  R"({
+      "dff": false,
+      "inputPins": [10, 11],
+      "outputPin": 17,
+      "table": [false, false, false, true]
+    })"_json,
+						  R"({
+      "dff": false,
+      "inputPins": [10, 11],
+      "outputPin": 19,
+      "table": [false, true, true, false]
+    })"_json,
+						  R"( {
+      "dff": false,
+      "inputPins": [10, 11],
+      "outputPin": 18,
+      "table": [false, true, true, true]
+    })"_json};
 	vector<TableData> TruthTables = api::parseTableDataArray(json_vec);
 
 	printf("\n\nlet table_data = vec![");
@@ -155,13 +173,14 @@ int main(int argc, char *argv[])
 
 	vector<DNF::Expression> Expressions;
 
+	printf("];\n\n");
 	if (!DNF::Build(TruthTables, Expressions, &Config))
 	{
 		ERROR("%s", "couldn't build all DNF expressions");
 		return false;
 	}
 
-	printf("];\n\nlet expressions = vec![");
+	printf("\nlet expressions = vec![");
 	for (DNF::Expression expression : Expressions)
 		DNF::printNewExpression(expression);
 	printf("];\n\n");

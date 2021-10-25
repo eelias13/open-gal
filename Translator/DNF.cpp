@@ -11,7 +11,8 @@ using namespace DNF;
 void DNF::printNewExpression(Expression expression)
 {
 	printf("Expression { out_pin: %d, enable_flip_flop: %s, rows: vec![", expression.m_OutputPin, expression.m_EnableFlipFlop ? "true" : "false");
-	for (Row row : expression.m_Rows){
+	for (Row row : expression.m_Rows)
+	{
 		printNewRow(row);
 		printf(", ");
 	}
@@ -21,7 +22,8 @@ void DNF::printNewExpression(Expression expression)
 void DNF::printExpression(Expression expression)
 {
 	printf("Expression { rows: ");
-	for (Row row : expression.m_Rows){
+	for (Row row : expression.m_Rows)
+	{
 		printRow(row);
 		printf(", ");
 	}
@@ -31,7 +33,8 @@ void DNF::printExpression(Expression expression)
 void DNF::printNewRow(Row row)
 {
 	printf("Row { pins: vec![");
-	for (Pin pin : row.m_Pins){
+	for (Pin pin : row.m_Pins)
+	{
 		printNewPin(pin);
 		printf(", ");
 	}
@@ -127,18 +130,10 @@ bool DNF::Build(vector<TableData> &TruthTables, vector<Expression> &ExpressionsO
 */
 
 
-// !!!!!!!!!!!!!!!! this has a bug  !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-// the table is reverst 
-// example:  
-// by prasing the table 1101 
-// it returns `[Pin { false , o1 }, Pin { true, o2}]`
-// but it should return `[Pin { true , o1 }, Pin { false, o2}]`
-// because the 0 in the tabel is at index 2 or in binary 10  NOT 01
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Row DNF::BuildRow(bitset<MAX_INPUTS> Bits, vector<uint32_t> Inputs)
 {
 	vector<Pin> Pins;
-
+	std::reverse(Inputs.begin(), Inputs.end());
 	for (uint32_t Index = 0; Index < Inputs.size(); Index++)
 	{
 		if (Bits[Inputs.size() - 1 - Index] == false)
