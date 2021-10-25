@@ -1,0 +1,28 @@
+{
+  "TableData": [
+    {
+      "dff": false,
+      "inputPins": [13, 11],
+      "outputPin": 17,
+      "table": [false, false, false, true]
+    },
+    {
+      "dff": false,
+      "inputPins": [13, 11],
+      "outputPin": 19,
+      "table": [false, true, true, false]
+    },
+    {
+      "dff": false,
+      "inputPins": [13, 11],
+      "outputPin": 18,
+      "table": [false, true, true, true]
+    },
+    {
+      "dff": true,
+      "inputPins": [3, 2],
+      "outputPin": 23,
+      "table": [true, true, false, true]
+    }
+  ]
+}
