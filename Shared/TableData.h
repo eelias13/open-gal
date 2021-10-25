@@ -1,6 +1,6 @@
 #pragma once
 
-//  Author: Lukas Götz
+//  Author: Lukas Gï¿½tz
 
 #include <vector>
 #include <stdint.h>

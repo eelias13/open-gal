@@ -62,3 +62,62 @@ impl Expression {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expression_new() {
+        let config = CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+
+        let table_data = vec![TableData::new(
+            vec![3, 2],
+            23,
+            vec![true, true, false, true],
+            true,
+        )];
+
+        let expressions = vec![Expression {
+            out_pin: 23,
+            enable_flip_flop: true,
+            rows: vec![
+                Row {
+                    pins: vec![Pin::new(true, 3), Pin::new(true, 2)],
+                },
+                Row {
+                    pins: vec![Pin::new(true, 3), Pin::new(false, 2)],
+                },
+                Row {
+                    pins: vec![Pin::new(false, 3), Pin::new(false, 2)],
+                },
+            ],
+        }];
+
+        for i in 0..table_data.len() {
+            assert_eq!(
+                Expression::new(&table_data[i], &config),
+                Ok(expressions[i].clone())
+            );
+        }
+    }
+}

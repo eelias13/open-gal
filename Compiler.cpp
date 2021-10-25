@@ -38,9 +38,8 @@ void compile(string easyGALCode, string outputFileName, string deviceName)
 	cout << "compilation successfully, new jedec file was created " << outputFileName << endl;
 }
 
-int main(int argc, char *argv[])
+void cli(int argc, char *argv[])
 {
-
 	if (argc == 1)
 	{
 		cerr << "invalid argument count" << endl;
@@ -107,4 +106,63 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 	}
+}
+
+void printTableData(TableData tableData)
+{
+	printf("TableData { output_pin: %d, enable_flip_flop: %s, input_pins: [", tableData.m_OutputPin, tableData.m_EnableFlipFlop ? "true" : "false");
+	for (uint32_t pin : tableData.m_InputPins)
+		printf("%d, ", pin);
+	printf("], table: [");
+	for (bool b : tableData.m_Table)
+		printf("%s, ", b ? "true" : "false");
+	printf("]}\n");
+}
+
+void printNewTableData(TableData tableData)
+{
+	printf("TableData::new(vec![ ");
+	for (uint32_t pin : tableData.m_InputPins)
+		printf("%d, ", pin);
+	printf("], %d, vec![", tableData.m_OutputPin);
+	for (bool b : tableData.m_Table)
+		printf("%s, ", b ? "true" : "false");
+	printf("], %s)\n", tableData.m_EnableFlipFlop ? "true" : "false");
+}
+
+int main(int argc, char *argv[])
+{
+
+	Configs::CircuitConfig Config;
+	vector<uint32_t> inputPins;
+	vector<uint32_t> outputPins;
+	initDeviceType(Config, "g22v10", inputPins, outputPins);
+
+	vector<json> json_vec{R"(
+    {
+      "dff": true,
+      "inputPins": [3, 2],
+      "outputPin": 23,
+      "table": [true, true, false, true]
+    }
+)"_json};
+	vector<TableData> TruthTables = api::parseTableDataArray(json_vec);
+
+	printf("\n\nlet table_data = vec![");
+
+	for (TableData TruthTable : TruthTables)
+		printNewTableData(TruthTable);
+
+	vector<DNF::Expression> Expressions;
+
+	if (!DNF::Build(TruthTables, Expressions, &Config))
+	{
+		ERROR("%s", "couldn't build all DNF expressions");
+		return false;
+	}
+
+	printf("];\n\nlet expressions = vec![");
+	for (DNF::Expression expression : Expressions)
+		DNF::printNewExpression(expression);
+	printf("];\n\n");
 }

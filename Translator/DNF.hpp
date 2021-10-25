@@ -7,6 +7,7 @@
 
 #include <bitset>
 #include <cmath>
+#include <stdio.h>
 
 #include "Helper.hpp"
 #include "../Shared/TableData.h"
@@ -65,6 +66,14 @@ namespace DNF
 		bool m_EnableFlipFlop;
 		vector<Row> m_Rows;
 	};
+
+	void printExpression(Expression expression);
+	void printRow(Row row);
+	void printPin(Pin pin);
+
+	void printNewRow(Row row);
+	void printNewPin(Pin pin);
+	void printNewExpression(Expression expression);
 
 	bool Build(TableData &TruthTable, Expression &ExpressionOut, Configs::CircuitConfig *pConfig);
 	bool Build(vector<TableData> &TruthTables, vector<Expression> &ExpressionsOut, Configs::CircuitConfig *pConfig);

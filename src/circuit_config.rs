@@ -28,10 +28,7 @@ impl CircuitConfig {
     }
 
     #[cfg(cli)]
-    pub fn load(path: &str) -> Option<Self> {
-        let json_str = std::fs::read_to_string(path).expect(&format!("file: {} not found", path));
-        let json: Value = serde_json::from_str(&json_str).unwrap();
-
+    pub fn from_json(json: &Value) -> Option<Self> {
         let num_fuses = json["NumFuses"].as_u64()? as u32;
         let num_pins = json["TotalNumPins"].as_u64()? as u32;
         let mut inputs = Vec::new();
@@ -73,8 +70,17 @@ mod tests {
     #[cfg(cli)]
     #[test]
     fn load() {
+        use serde_json::json;
+        let json = json!(
+            "InputPins": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            "NumFuses": 5892,
+            "TotalNumPins": 24,
+            "OutputPins": [[14, 8], [15, 10], [16,12], [17, 14], [18, 16], [19, 16], [20, 14], [21, 12], [22, 10], [23, 8]],
+            "SpecialPins": [[13, 42]]
+
+        );
         assert_eq!(
-            CircuitConfig::load("./Configs/g22v10.json").unwrap(),
+            CircuitConfig::from_json(json).unwrap(),
             CircuitConfig {
                 inputs: vec![
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23

@@ -47,7 +47,8 @@ void api::code2TableData(string easyGALCode, string outputFileName, string devic
 TableData api::parseTableData(json tdJson)
 {
     // auto glambda = [](auto a, auto &&b) { return a < b; };
-    auto check = [](string expected, json tdJson) {
+    auto check = [](string expected, json tdJson)
+    {
         if (tdJson.find(expected) == tdJson.end())
         {
             cerr << "missing property " << expected << " in json object " << tdJson << endl;
@@ -55,32 +56,53 @@ TableData api::parseTableData(json tdJson)
         }
     };
 
-    check("dff", tdJson);
-    check("outputPin", tdJson);
-    check("inputPins", tdJson);
-    check("table", tdJson);
-
     TableData tableData;
 
-    tableData.m_EnableFlipFlop = tdJson["dff"];
-    tableData.m_OutputPin = tdJson["outputPin"];
+    tdJson.at("dff").get_to(tableData.m_EnableFlipFlop);
+    tdJson.at("outputPin").get_to(tableData.m_OutputPin);
     for (uint32_t pin : tdJson["inputPins"])
         tableData.m_InputPins.push_back(pin);
     for (bool b : tdJson["table"])
         tableData.m_Table.push_back(b);
+
     return tableData;
 }
 
-vector<TableData> api::parseTableDataArray(json array)
+vector<TableData> api::parseTableDataArray(vector<json> array)
 {
-    vector<TableData> result = vector<TableData>(array.size());
-    for (uint32_t i = 0; i < array.size(); i++)
-    {
-        parseTableData(array[i]);
-        // tableData.m_InputPins =
-    }
+    vector<TableData> result;
+    for (json j : array)
+        result.push_back(parseTableData(j));
 
     return result;
+}
+
+vector<TableData> api::readTableData(string tableDataJson)
+{
+
+    ifstream file(tableDataJson);
+    if (file.good() == false)
+    {
+        cerr << "file " << tableDataJson << " doesn't exist" << endl;
+        exit(1);
+    }
+    json jsonFile = json::parse(file);
+
+    if (jsonFile.find("TableData") == jsonFile.end())
+    {
+        cerr << "missing property TableData in json file " << tableDataJson << endl;
+        exit(1);
+    }
+
+    vector<TableData> tableData = parseTableDataArray(jsonFile["TableData"]);
+
+    if (tableData.empty())
+    {
+        cerr << "on TableData found in json file " << tableDataJson << endl;
+        exit(1);
+    }
+
+    return tableData;
 }
 
 void api::tableData2jedec(string tableDataJson, string outputFileName, string deviceName)

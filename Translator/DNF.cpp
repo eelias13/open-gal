@@ -8,6 +8,54 @@ using namespace DNF;
 *		TableData structure is faulty. The resulting Expression datastructure is stored in the supplied Expression reference.
 */
 
+void DNF::printNewExpression(Expression expression)
+{
+	printf("Expression { out_pin: %d, enable_flip_flop: %s, rows: vec![", expression.m_OutputPin, expression.m_EnableFlipFlop ? "true" : "false");
+	for (Row row : expression.m_Rows){
+		printNewRow(row);
+		printf(", ");
+	}
+	printf("]}\n");
+}
+
+void DNF::printExpression(Expression expression)
+{
+	printf("Expression { rows: ");
+	for (Row row : expression.m_Rows){
+		printRow(row);
+		printf(", ");
+	}
+	printf(", out_pin: %d, enable_flip_flop: %s}\n", expression.m_OutputPin, expression.m_EnableFlipFlop ? "true" : "false");
+}
+
+void DNF::printNewRow(Row row)
+{
+	printf("Row { pins: vec![");
+	for (Pin pin : row.m_Pins){
+		printNewPin(pin);
+		printf(", ");
+	}
+	printf("]}\n");
+}
+
+void DNF::printRow(Row row)
+{
+	printf("Row { pins: [");
+	for (Pin pin : row.m_Pins)
+		printPin(pin);
+	printf("]}\n");
+}
+
+void DNF::printNewPin(Pin pin)
+{
+	printf("Pin::new(%s, %d)", pin.m_Inverted ? "true" : "false", pin.m_PinNumber);
+}
+
+void DNF::printPin(Pin pin)
+{
+	printf("Pin { inverted: %s, pin_num: %d }\n", pin.m_Inverted ? "true" : "false", pin.m_PinNumber);
+}
+
 bool DNF::Build(TableData &TruthTable, Expression &ExpressionOut, Configs::CircuitConfig *pConfig)
 {
 	if (TruthTable.m_InputPins.size() > pConfig->m_Inputs.size())
@@ -26,6 +74,7 @@ bool DNF::Build(TableData &TruthTable, Expression &ExpressionOut, Configs::Circu
 	for (uint32_t Index = 0; Index < TruthTable.m_Table.size(); Index++)
 	{
 		if (TruthTable.m_Table[Index])
+
 		{
 			Rows.push_back(BuildRow(bitset<MAX_INPUTS>(Index), TruthTable.m_InputPins));
 		}

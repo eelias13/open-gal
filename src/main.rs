@@ -2,12 +2,15 @@ mod circuit_config;
 mod dnf;
 mod fuses;
 mod table_data;
+mod utils;
 
 pub use circuit_config::CircuitConfig;
 pub use dnf::Expression;
 pub use table_data::TableData;
+#[cfg(cli)]
+pub use utils::read_json;
 
-#[cfg(abc)]
+#[cfg(cli)]
 use clap::{App, AppSettings, Arg};
 
 #[cfg(cli)]

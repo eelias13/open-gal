@@ -11,6 +11,20 @@ pub struct TableData {
 }
 
 impl TableData {
+    pub fn new(
+        input_pins: Vec<u32>,
+        output_pin: u32,
+        table: Vec<bool>,
+        enable_flip_flop: bool,
+    ) -> Self {
+        Self {
+            input_pins,
+            output_pin,
+            table,
+            enable_flip_flop,
+        }
+    }
+
     pub fn valid(&self, config: &CircuitConfig) -> Result<(), String> {
         if self.input_pins.len() > config.inputs.len() {
             return Err("Too many input pins".to_string());
@@ -47,57 +61,55 @@ impl TableData {
 }
 
 #[cfg(cli)]
-pub fn get_table_data(path: &str) -> Option<Vec<TableData>> {
-    let json_str = std::fs::read_to_string(path).expect(&format!("file: {} not found", path));
-    let json: Value = serde_json::from_str(&json_str).unwrap();
+impl TableData {
+    fn to_json(&self) -> Value {
+        let mut map = Map::new();
+        map.insert("dff".to_string(), json!(self.enable_flip_flop));
+        map.insert("inputPins".to_string(), json!(self.input_pins));
+        map.insert("outputPin".to_string(), json!(self.output_pin));
+        map.insert("table".to_string(), json!(self.table));
+        Value::Object(map)
+    }
 
+    fn from_json(json: &Value) -> Option<Self> {
+        let mut input_pins = Vec::new();
+        for val in json["inputPins"].as_array()? {
+            input_pins.push(val.as_u64()? as u32);
+        }
+        let output_pin = json["outputPin"].as_u64()? as u32;
+        let mut table = Vec::new();
+        for val in json["table"].as_array()? {
+            table.push(val.as_bool()?);
+        }
+        let enable_flip_flop = json["dff"].as_bool()?;
+
+        let table_data = TableData {
+            input_pins,
+            output_pin,
+            table,
+            enable_flip_flop,
+        };
+
+        Some(table_data)
+    }
+}
+
+#[cfg(cli)]
+pub fn from_json_vec(json: &Value) -> Option<Vec<TableData>> {
     let mut table_data = Vec::new();
     for val in json["TableData"].as_array()? {
-        table_data.push(json2table_data(val)?);
+        table_data.push(TableData::from_json(val)?);
     }
 
     Some(table_data)
 }
 
 #[cfg(cli)]
-pub fn to_json(table_data: &Vec<TableData>) -> Value {
-    let json_arr = table_data.iter().map(|td| table_data2json(td)).collect();
+pub fn to_json_vec(table_data: &Vec<TableData>) -> Value {
+    let json_arr = table_data.iter().map(|td| TableData::to_json(td)).collect();
     let mut map = Map::new();
     map.insert("TableData".to_string(), Value::Array(json_arr));
     Value::Object(map)
-}
-
-#[cfg(cli)]
-fn table_data2json(table_data: &TableData) -> Value {
-    let mut map = Map::new();
-    map.insert("dff".to_string(), json!(table_data.enable_flip_flop));
-    map.insert("inputPins".to_string(), json!(table_data.input_pins));
-    map.insert("outputPin".to_string(), json!(table_data.output_pin));
-    map.insert("table".to_string(), json!(table_data.table));
-    Value::Object(map)
-}
-
-#[cfg(cli)]
-fn json2table_data(json: &Value) -> Option<TableData> {
-    let mut input_pins = Vec::new();
-    for val in json["inputPins"].as_array()? {
-        input_pins.push(val.as_u64()? as u32);
-    }
-    let output_pin = json["outputPin"].as_u64()? as u32;
-    let mut table = Vec::new();
-    for val in json["table"].as_array()? {
-        table.push(val.as_bool()?);
-    }
-    let enable_flip_flop = json["dff"].as_bool()?;
-
-    let table_data = TableData {
-        input_pins,
-        output_pin,
-        table,
-        enable_flip_flop,
-    };
-
-    Some(table_data)
 }
 
 #[cfg(test)]
@@ -147,7 +159,7 @@ mod tests {
             }
           ]
         });
-        let table_data = get_table_data("./tableData.json").unwrap();
+        let table_data = from_json().unwrap();
         assert_eq!(json, to_json(&table_data));
     }
 }
