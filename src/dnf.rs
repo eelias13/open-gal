@@ -1,7 +1,5 @@
 use crate::{CircuitConfig, TableData};
 
-const MAX_INPUTS: u32 = 64;
-
 #[derive(PartialEq, Debug, Clone)]
 
 pub struct Pin {
@@ -21,15 +19,12 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn new(bits: Vec<bool>, inputs: Vec<u32>) -> Self {
+    pub fn new(mut bits: Vec<bool>, inputs: Vec<u32>) -> Self {
         let mut pins = Vec::new();
+        bits.reverse();
 
         for i in 0..inputs.len() {
-            if bits[inputs.len() - 1 - i] == false {
-                pins.push(Pin::new(true, inputs[i]));
-            } else {
-                pins.push(Pin::new(false, inputs[i]));
-            }
+            pins.push(Pin::new(!bits[i], inputs[i]));
         }
 
         Self { pins }
@@ -49,10 +44,10 @@ impl Expression {
 
         let mut rows = Vec::new();
 
-        for (_i, &val) in truth_table.table.clone().iter().enumerate() {
+        for (i, &val) in truth_table.table.clone().iter().enumerate() {
             if val {
-                rows.push(Row::new(Vec::new(), truth_table.input_pins.clone()));
-                // Vec::new() = bitset<MAX_INPUTS>(i)
+                let bits = uint_to_bool_vec(i as u32);
+                rows.push(Row::new(bits, truth_table.input_pins.clone()));
             }
         }
         Ok(Self {
@@ -63,9 +58,64 @@ impl Expression {
     }
 }
 
+fn uint_to_bool_vec(num: u32) -> Vec<bool> {
+    let mut result = Vec::with_capacity(32);
+    let string_rep = format!("{:#034b}", num);
+
+    // skip 0b
+    for c in string_rep.chars().skip(2) {
+        let val = match c {
+            '0' => false,
+            '1' => true,
+            _ => panic!("unexpected char {} expected 1 or 0", c), // only has 0  or 1
+        };
+        result.push(val);
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bit_convesion() {
+        let bits = uint_to_bool_vec(5); // 5 -> 0101
+        assert_eq!(bits.len(), 32);
+        assert_eq!(
+            bits,
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, true, false, true
+            ]
+        );
+
+        assert_eq!(
+            uint_to_bool_vec(238934),
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, true, true, //
+                true, false, true, false, false, true, false, true, //
+                false, true, false, true, false, true, true, false //
+            ]
+        );
+
+        assert_eq!(
+            uint_to_bool_vec(0xff),
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                true, true, true, true, true, true, true, true //
+            ]
+        );
+
+        assert_eq!(uint_to_bool_vec(std::u32::MIN), vec![false; 32]);
+        assert_eq!(uint_to_bool_vec(std::u32::MAX), vec![true; 32]);
+    }
 
     #[test]
     fn expression_new() {
@@ -93,6 +143,7 @@ mod tests {
         let table_data = vec![TableData::new(
             vec![3, 2],
             23,
+            //   00    01     10     11
             vec![true, true, false, true],
             true,
         )];
@@ -105,7 +156,7 @@ mod tests {
                     pins: vec![Pin::new(true, 3), Pin::new(true, 2)],
                 },
                 Row {
-                    pins: vec![Pin::new(true, 3), Pin::new(false, 2)],
+                    pins: vec![Pin::new(false, 3), Pin::new(true, 2)],
                 },
                 Row {
                     pins: vec![Pin::new(false, 3), Pin::new(false, 2)],

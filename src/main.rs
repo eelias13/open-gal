@@ -41,5 +41,7 @@ fn main() {
 
 #[cfg(not(cli))]
 fn main() {
+    let num: u32 = 5;
+    println!("{:#064b}", num);
     println!("hello world");
 }

@@ -126,6 +126,15 @@ bool DNF::Build(vector<TableData> &TruthTables, vector<Expression> &ExpressionsO
 *		The result is returned in the DNF::Row datastructure.
 */
 
+
+// !!!!!!!!!!!!!!!! this has a bug  !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+// the table is reverst 
+// example:  
+// by prasing the table 1101 
+// it returns `[Pin { false , o1 }, Pin { true, o2}]`
+// but it should return `[Pin { true , o1 }, Pin { false, o2}]`
+// because the 0 in the tabel is at index 2 or in binary 10  NOT 01
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Row DNF::BuildRow(bitset<MAX_INPUTS> Bits, vector<uint32_t> Inputs)
 {
 	vector<Pin> Pins;

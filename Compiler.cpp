@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
       "dff": true,
       "inputPins": [3, 2],
       "outputPin": 23,
-      "table": [true, true, false, true]
+      "table": [false, false, true, false]
     }
 )"_json};
 	vector<TableData> TruthTables = api::parseTableDataArray(json_vec);
