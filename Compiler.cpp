@@ -108,6 +108,15 @@ void cli(int argc, char *argv[])
 	}
 }
 
+uint8_t ConvertBoolArrayToByte(vector<bool> source)
+{
+	uint8_t result = 0;
+	for (int i = 0; i < 8; i++)
+		if (source[i])
+			result |= (uint8_t)(1 << (7 - i));
+	return result;
+}
+
 void printTableData(TableData tableData)
 {
 	printf("TableData { output_pin: %d, enable_flip_flop: %s, input_pins: [", tableData.m_OutputPin, tableData.m_EnableFlipFlop ? "true" : "false");
@@ -128,6 +137,21 @@ void printNewTableData(TableData tableData)
 	for (bool b : tableData.m_Table)
 		printf("%s, ", b ? "true" : "false");
 	printf("], %s)\n", tableData.m_EnableFlipFlop ? "true" : "false");
+}
+
+void printFusesBytes(vector<bool> Fuses)
+{
+	int index = 0;
+	vector<bool> byte;
+
+	for (int i = 0; i < Fuses.size() / 8; i++)
+	{
+		for (int j = 0; j < 8; j++)
+			byte.push_back(Fuses.at(i * 8 + j));
+
+		printf("0x%02hhX, ", ConvertBoolArrayToByte(byte));
+		byte.clear();
+	}
 }
 
 int main(int argc, char *argv[])
@@ -158,30 +182,59 @@ int main(int argc, char *argv[])
       "outputPin": 19,
       "table": [false, true, true, false]
     })"_json,
-						  R"( {
+						  R"({
       "dff": false,
       "inputPins": [10, 11],
       "outputPin": 18,
       "table": [false, true, true, true]
+    })"_json,
+						  R"({
+      "dff": true,
+      "inputPins": [3, 2],
+      "outputPin": 23,
+      "table": [true, true, false, true]
+    })"_json,
+						  R"({
+      "dff": true,
+      "inputPins": [3, 2],
+      "outputPin": 23,
+      "table": [false, true, true, false]
     })"_json};
 	vector<TableData> TruthTables = api::parseTableDataArray(json_vec);
 
-	printf("\n\nlet table_data = vec![");
+	printf("\n\nvec![");
 
 	for (TableData TruthTable : TruthTables)
+	{
 		printNewTableData(TruthTable);
+		printf(", ");
+	}
+	printf("];\n\n");
 
 	vector<DNF::Expression> Expressions;
-
-	printf("];\n\n");
 	if (!DNF::Build(TruthTables, Expressions, &Config))
 	{
 		ERROR("%s", "couldn't build all DNF expressions");
 		return false;
 	}
 
-	printf("\nlet expressions = vec![");
-	for (DNF::Expression expression : Expressions)
-		DNF::printNewExpression(expression);
-	printf("];\n\n");
+	vector<bool> Fuses;
+
+	Configs::CircuitConfig *ConfigPtr = std::addressof(Config);
+
+	uint32_t iRowLength = Fuses::GetRowLength(ConfigPtr);
+	uint32_t iNumRows = Fuses::Output::MaximumTerms(Expressions[0].m_OutputPin, ConfigPtr) + 1;
+
+	if (!Fuses::BuildFromExpression(Expressions[0], iNumRows, iRowLength, Fuses, ConfigPtr))
+	{
+		ERROR("%s", "couldn't generate all fuses for given expressions");
+		return false;
+	}
+
+	printf("\n\n");
+	DNF::printNewExpression(Expressions[0]);
+	printf("\n\n");
+	printf("vec![");
+	printFusesBytes(Fuses);
+	printf("]");
 }

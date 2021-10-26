@@ -1,10 +1,7 @@
 use crate::{CircuitConfig, Expression};
 
-/*
-*		Fuses::BuildFromExpression generates a fuselist for a specific expression and outputs the result in a supplied
-*		fuselist. It needs to know the term size and number of rows to correctly pad the fuselist with zeroes.
-*/
-
+/// Fuses::BuildFromExpression generates a fuselist for a specific expression and outputs the result in a supplied
+///	fuselist. It needs to know the term size and number of rows to correctly pad the fuselist with zeroes.
 fn build_from_expression(
     expression: &Expression,
     num_rows: u32,
@@ -174,7 +171,7 @@ fn mode_fuse_indices(
         }
     }
 
-    Err(String::new())
+    Err(format!("output pin number {} not found in config", pin_num))
 }
 
 /// Fuses::Output::GetFirstFuseIndex returns the first fuse of an OLMC output.
@@ -185,7 +182,7 @@ fn get_first_fuse_index(pin_num: u32, config: &CircuitConfig) -> Result<u32, Str
 
     let mut fuse_index = get_row_length(config);
 
-    let mut olmc = config.outputs.last().unwrap().0;
+    let mut olmc = config.outputs.last().unwrap().0; // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     while olmc > pin_num {
         fuse_index += (maximum_terms(olmc, config)? + 1) * get_row_length(config);
         olmc -= 1;
@@ -207,7 +204,7 @@ fn maximum_terms(pin_num: u32, config: &CircuitConfig) -> Result<u32, String> {
             return Ok(output_pin.1);
         }
     }
-    Err(String::new())
+    Err(format!("output pin number {} not found in config", pin_num))
 }
 
 /// Fuses::PinToIndex converts a PIN to a fuselist row index. It takes in a PIN number and a boolean
@@ -259,7 +256,7 @@ fn pin_to_index(
                     return Ok(fuse_index + 1);
                 }
             } else {
-                return Err(String::new());
+                return Err(format!("unexpected mode {:?}", mode));
             }
         }
     }
@@ -270,5 +267,99 @@ fn pin_to_index(
         return Ok(fuse_index + 1);
     } else {
         return Ok(fuse_index);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::dnf::Pin;
+    use crate::dnf::Row;
+
+    fn convert_bool_array_to_byte(byte: &Vec<bool>) -> u8 {
+        let mut result = 0;
+        for i in 0..8 {
+            if byte[i] {
+                result |= 1 << (7 - i);
+            }
+        }
+        result
+    }
+
+    fn fuses_as_bytes(fuses: Vec<bool>) -> Vec<u8> {
+        let mut byte = vec![false; 8];
+        let mut result = Vec::new();
+
+        for i in 0..((fuses.len() as f64 / 8.).ceil() as usize) {
+            for j in 0..8 {
+                byte[j] = if let Some(&b) = fuses.get(i * 8 + j) {
+                    b
+                } else {
+                    false
+                };
+            }
+            result.push(convert_bool_array_to_byte(&byte));
+        }
+        result
+    }
+
+    #[test]
+    fn convert_bool_array_to_byte_test() {
+        assert_eq!(convert_bool_array_to_byte(&vec![true; 8]), 0xff);
+        assert_eq!(convert_bool_array_to_byte(&vec![false; 8]), 0x00);
+    }
+
+    #[test]
+    fn fuses_as_bytes_test() {
+        let fuses = vec![true; 9];
+        assert_eq!(fuses_as_bytes(fuses), vec![255, 128])
+    }
+
+    #[test]
+    fn expression() {
+        let config = CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+
+        let expression = Expression {
+            out_pin: 23,
+            enable_flip_flop: true,
+            rows: vec![Row {
+                pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+            }],
+        };
+        let pin_num = 0;
+
+        let row_length = get_row_length(&config); // Fuses::GetRowLength(ConfigPtr);
+        let num_rows = maximum_terms(pin_num, &config).unwrap(); // Fuses::Output::MaximumTerms(Expressions[0].m_OutputPin, ConfigPtr) + 1;
+        let result = build_from_expression(&expression, num_rows, row_length, &config).unwrap();
+        let bytes = fuses_as_bytes(result);
+        assert_eq!(
+            bytes,
+            vec![
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xB7, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ]
+        );
     }
 }
