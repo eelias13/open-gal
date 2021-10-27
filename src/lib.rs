@@ -1,7 +1,10 @@
+mod circuit_config;
 mod constants;
 mod parser;
 mod table_data;
+pub mod translator;
 
+pub use circuit_config::CircuitConfig;
 pub use table_data::TableData;
 
 pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, String> {
