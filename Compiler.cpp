@@ -186,21 +186,6 @@ int main(int argc, char *argv[])
 		return false;
 	}
 
-	vector<bool> Fuses;
-
-	Configs::CircuitConfig *ConfigPtr = std::addressof(Config);
-
-	if (!Fuses::Build(Expressions, Fuses, &Config))
-	{
-		ERROR("%s", "couldn't generate all fuses for given expressions");
-		return false;
-	}
-
-	printf("\n\n");
-	for (DNF::Expression e : Expressions)
-		DNF::printNewExpression(e);
-	printf("\n\nFuses %ld\n", Fuses.size());
-	printf("vec![");
-	printFusesBytes(Fuses);
-	printf("]\n");
+	Translator::Process(TruthTables, Config, "out.jedec");
+	printf("\n");
 }

@@ -1,42 +1,43 @@
-use crate::{CircuitConfig, Expression};
+use crate::translator::dnf::Expression;
+use crate::CircuitConfig;
 
 /// Fuses::BuildFromExpression generates a fuselist for a specific expression and outputs the result in a supplied
 ///	fuselist. It needs to know the term size and number of rows to correctly pad the fuselist with zeroes.
 fn build_from_expression(
-    expression: &Expression,
+    expr: &Expression,
     num_rows: u32,
-    row_length: u32,
+    row_len: u32,
     config: &CircuitConfig,
 ) -> Result<Vec<bool>, String> {
-    if !is_valid(expression.out_pin, &config) {
+    if !is_valid(expr.out_pin, &config) {
         return Err("Expression has invalid output pin".to_string());
-    } else if expression.rows.len() > maximum_terms(expression.out_pin, config)? as usize {
+    } else if expr.rows.len() > maximum_terms(expr.out_pin, config)? as usize {
         return Err("Too many terms for given output pin".to_string());
     }
 
-    let mut fuse_list = vec![false; (num_rows * row_length) as usize];
+    let mut fuse_list = vec![false; (num_rows * row_len) as usize];
 
-    for i in 0..row_length as usize {
+    for i in 0..row_len as usize {
         fuse_list[i] = true;
     }
 
     //	Start writing DNF terms.
-    for term_index in 0..expression.rows.len() {
-        for i in 0..row_length {
-            let index = (row_length + term_index as u32 * row_length + i) as usize;
+    for term_index in 0..expr.rows.len() {
+        for i in 0..row_len {
+            let index = (row_len + term_index as u32 * row_len + i) as usize;
             fuse_list[index] = true;
         }
 
-        for pin_index in 0..expression.rows[term_index].pins.len() {
-            let pin = expression.rows[term_index].pins[pin_index].clone();
+        for pin_index in 0..expr.rows[term_index].pins.len() {
+            let pin = expr.rows[term_index].pins[pin_index].clone();
 
-            let mode = if expression.enable_flip_flop {
+            let mode = if expr.enable_flip_flop {
                 MacrocellMode::ModeRegisteredHigh
             } else {
                 MacrocellMode::ModeCombinatorialHigh
             };
             let index = pin_to_index(pin.pin_num, pin.inverted, mode, config)?;
-            let index = row_length as usize + term_index * row_length as usize + index as usize;
+            let index = row_len as usize + term_index * row_len as usize + index as usize;
             fuse_list[index] = false;
         }
     }
@@ -44,57 +45,56 @@ fn build_from_expression(
     Ok(fuse_list)
 }
 
-fn build(expressions: &Vec<Expression>, config: &CircuitConfig) -> Result<Vec<bool>, String> {
+pub fn build(exprs: &Vec<Expression>, config: &CircuitConfig) -> Result<Vec<bool>, String> {
     //	Get row length for one DNF term.
     let row_len = get_row_length(config);
 
     //	Adjust fuselist size to the fuse list size of the integrated circuit.
     //	Set AR Fuses to zero (we don't need them as of yet)
-    let mut fuse_list_out = vec![false; config.num_fuses as usize];
+    let mut fuse_out = vec![false; config.num_fuses as usize];
 
     //	Start writing expressions to FuseList.
-    for index in 0..expressions.len() {
-        let exp_index_start = get_first_fuse_index(expressions[index].out_pin, config)? as usize;
-        let num_rows = maximum_terms(expressions[index].out_pin, config)?;
+    for expr in exprs.clone() {
+        let expr_start = get_first_fuse_index(expr.out_pin, config)? as usize;
+        let num_rows = maximum_terms(expr.out_pin, config)?;
 
-        let expression_buffer =
-            build_from_expression(&expressions[index], num_rows + 1, row_len, config)?;
+        let expr_buf = build_from_expression(&expr, num_rows + 1, row_len, config)?;
 
         //	Copy ExpressionBuffer into the correct target destination in the fuse matrix.
-        for i in 0..expression_buffer.len() {
-            fuse_list_out[i + exp_index_start] = expression_buffer[i];
+        for i in 0..expr_buf.len() {
+            fuse_out[i + expr_start] = expr_buf[i];
         }
     }
 
     //	Set SP fuses to zero because we also don't need them as of yet.
     let last_fuse_idx = get_last_fuse_index(config.outputs.first().unwrap().0, config)?;
     for i in 0..row_len {
-        fuse_list_out[(i + last_fuse_idx) as usize] = false;
+        fuse_out[(i + last_fuse_idx) as usize] = false;
     }
 
     //	Set S0 & S1 fuses.
-    for expr in expressions {
+    for expr in exprs {
         let mode_fuses = mode_fuse_indices(expr.out_pin, config)?;
 
         if expr.enable_flip_flop {
-            fuse_list_out[(mode_fuses.0) as usize] = true;
-            fuse_list_out[(mode_fuses.1) as usize] = false;
+            fuse_out[(mode_fuses.0) as usize] = true;
+            fuse_out[(mode_fuses.1) as usize] = false;
         } else {
-            fuse_list_out[(mode_fuses.0) as usize] = true;
-            fuse_list_out[(mode_fuses.1) as usize] = true;
+            fuse_out[(mode_fuses.0) as usize] = true;
+            fuse_out[(mode_fuses.1) as usize] = true;
         }
     }
 
-    Ok(fuse_list_out)
+    Ok(fuse_out)
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum MacrocellMode {
     ModeNone,
     ModeRegisteredHigh,
-    ModeRegisteredLow,
+    // ModeRegisteredLow,
     ModeCombinatorialHigh,
-    ModeCombinatorialLow,
+    // ModeCombinatorialLow,
 }
 
 /// Fuses::Output::GetLastFuseIndex returns the last fuse of an OLMC output.
@@ -109,8 +109,8 @@ fn get_last_fuse_index(pin_num: u32, config: &CircuitConfig) -> Result<u32, Stri
 
 /// Fuses::Output::IsValid checks if a given pin is an output pin:
 fn is_valid(pin_num: u32, config: &CircuitConfig) -> bool {
-    for (output_pin, _) in config.outputs.clone() {
-        if pin_num == output_pin {
+    for (out_pin, _) in config.outputs.clone() {
+        if pin_num == out_pin {
             return true;
         }
     }
@@ -165,9 +165,9 @@ fn get_row_length(config: &CircuitConfig) -> u32 {
 /// if the function return value is -1 it means that the given pin number is not an valid output pin
 /// thus the function can't return a valid term number.
 fn maximum_terms(pin_num: u32, config: &CircuitConfig) -> Result<u32, String> {
-    for output_pin in config.outputs.clone() {
-        if output_pin.0 == pin_num {
-            return Ok(output_pin.1);
+    for out_pin in config.outputs.clone() {
+        if out_pin.0 == pin_num {
+            return Ok(out_pin.1);
         }
     }
     Err(format!("output pin number {} not found in config", pin_num))
@@ -237,10 +237,19 @@ fn pin_to_index(
 }
 
 #[cfg(test)]
+use crate::translator::dnf::Pin;
+
+#[cfg(test)]
+use crate::translator::dnf::Row;
+
+#[cfg(test)]
+use crate::translator::utils::bool_to_byte;
+
+#[cfg(test)]
 mod tests {
 
-    use crate::dnf::Pin;
-    use crate::dnf::Row;
+    use super::Pin;
+    use super::Row;
 
     use lazy_static::lazy_static;
 
@@ -263,12 +272,6 @@ mod tests {
             ],
             vec![(13, 42)],
         );
-    }
-
-    #[test]
-    fn convert_bool_array_to_byte_test() {
-        assert_eq!(convert_bool_array_to_byte(&vec![true; 8]), 0xff);
-        assert_eq!(convert_bool_array_to_byte(&vec![false; 8]), 0x00);
     }
 
     #[test]
@@ -450,22 +453,12 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xFC,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             ]
         );
     }
 
-    fn convert_bool_array_to_byte(byte: &Vec<bool>) -> u8 {
-        let mut result = 0;
-        for i in 0..8 {
-            if byte[i] {
-                result |= 1 << (7 - i);
-            }
-        }
-        result
-    }
-
-    fn fuses_as_bytes(fuses: Vec<bool>) -> Vec<u8> {
+    pub fn fuses_as_bytes(fuses: Vec<bool>) -> Vec<u8> {
         let mut byte = vec![false; 8];
         let mut result = Vec::new();
 
@@ -477,7 +470,7 @@ mod tests {
                     false
                 };
             }
-            result.push(convert_bool_array_to_byte(&byte));
+            result.push(super::bool_to_byte(&byte));
         }
         result
     }

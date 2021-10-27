@@ -4,7 +4,7 @@
 
 ostringstream Buffer;
 
-void JEDEC::Serialize()
+string JEDEC::Serialize()
 {
 	//	Comment section start.
 
@@ -97,9 +97,11 @@ void JEDEC::Serialize()
 
 	//	Output file to disk.
 
-	ofstream File(m_Filename);
-	File << m_FileBuffer;
-	File.close();
+	// ofstream File(m_Filename);
+	// File << m_FileBuffer;
+	// File.close();
+
+	return m_FileBuffer;
 }
 
 /*

@@ -11,7 +11,7 @@
 
 //	Version string for JEDEC file
 
-constexpr char EASYGAL_VERSION[] = "EasyGal-Translator v1.0";
+constexpr char EASYGAL_VERSION[] = "open-gal 0.1.0";
 
 //	Needed JEDEC field identifiers ("http://www.pldtool.com/pdf/fmt_jedec.pdf").
 
@@ -54,7 +54,7 @@ public:
 	{
 	}
 
-	void Serialize();
+	std::string Serialize();
 
 private:
 	bool BlockContainsData(uint32_t StartIndex);

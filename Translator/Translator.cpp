@@ -26,7 +26,7 @@ bool Translator::Process(vector<TableData> TruthTables, Configs::CircuitConfig D
 		return false;
 	}
 
-	JEDEC(Config.m_iNumPins, Config.m_iNumFuses, Fuses, Filename).Serialize();
+	std::cout << JEDEC(Config.m_iNumPins, Config.m_iNumFuses, Fuses, Filename).Serialize();
 
 	return true;
 }
