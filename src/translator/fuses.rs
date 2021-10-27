@@ -237,20 +237,11 @@ fn pin_to_index(
 }
 
 #[cfg(test)]
-use crate::translator::dnf::Pin;
-
-#[cfg(test)]
-use crate::translator::dnf::Row;
-
-#[cfg(test)]
-use crate::translator::utils::bool_to_byte;
-
-#[cfg(test)]
 mod tests {
 
-    use super::Pin;
-    use super::Row;
-
+    use crate::translator::dnf::Pin;
+    use crate::translator::dnf::Row;
+    use crate::translator::utils::bool_to_byte;
     use lazy_static::lazy_static;
 
     lazy_static! {
@@ -470,7 +461,7 @@ mod tests {
                     false
                 };
             }
-            result.push(super::bool_to_byte(&byte));
+            result.push(bool_to_byte(&byte));
         }
         result
     }
