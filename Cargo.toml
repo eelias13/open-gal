@@ -11,3 +11,6 @@ cli = ["serde_json", "clap"]
 [dependencies]
 serde_json = { version = "1.0", optional = true }
 clap = { version = "3.0.0-beta.4", features = ["yaml"], optional = true }
+
+[dev-dependencies]
+lazy_static = "1.4.0" 

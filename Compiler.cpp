@@ -22,92 +22,6 @@
 
 using namespace std;
 
-void compile(string easyGALCode, string outputFileName, string deviceName)
-{
-	Parser parser = Parser(easyGALCode);
-	vector<TableData> tableData = parser.parse();
-
-	Configs::CircuitConfig DeviceType;
-	vector<uint32_t> inputPins;
-	vector<uint32_t> outputPins;
-	initDeviceType(DeviceType, deviceName, inputPins, outputPins);
-	validate(tableData, inputPins, outputPins);
-
-	Translator::Process(tableData, DeviceType, outputFileName);
-
-	cout << "compilation successfully, new jedec file was created " << outputFileName << endl;
-}
-
-void cli(int argc, char *argv[])
-{
-	if (argc == 1)
-	{
-		cerr << "invalid argument count" << endl;
-		showHelpMenu();
-		exit(1);
-	}
-
-	if (strcmp(argv[1], "help") == 0)
-	{
-		showHelpMenu();
-		exit(0);
-	}
-	else if (strcmp(argv[1], "api") == 0)
-	{
-		if (argc == 2)
-		{
-			cerr << "invalid argument count" << endl;
-			showHelpMenu();
-			exit(1);
-		}
-
-		string fileEnding = getFileEnding(argv[2]);
-		if (fileEnding == "json")
-		{
-			checkFileEnding(argv[3], "jedec");
-			if (argc != 5)
-			{
-				cerr << "invalid argument count" << endl;
-				showHelpMenu();
-				exit(1);
-			}
-			api::tableData2jedec(argv[2], argv[3], argv[4]);
-		}
-		else if (fileEnding == "txt")
-		{
-			checkFileEnding(argv[3], "json");
-			if (argc != 4 && argc != 5)
-			{
-				cerr << "invalid argument count" << endl;
-				showHelpMenu();
-				exit(1);
-			}
-			api::code2TableData(argv[2], argv[3], argc == 5 ? argv[4] : "");
-		}
-		else
-		{
-			cerr << "invalid file extention " + string(argv[2]) << endl;
-			showHelpMenu();
-			exit(1);
-		}
-	}
-	else
-	{
-		if (argc == 4)
-		{
-			checkFileEnding(argv[1], "txt");
-			checkFileEnding(argv[2], "jedec");
-			compile(argv[1], argv[2], argv[3]);
-		}
-		else
-		{
-			cerr << "invalid argument count" << endl;
-			showHelpMenu();
-			exit(1);
-		}
-	}
-}
-
 uint8_t ConvertBoolArrayToByte(vector<bool> source)
 {
 	uint8_t result = 0;
@@ -152,6 +66,60 @@ void printFusesBytes(vector<bool> Fuses)
 		printf("0x%02hhX, ", ConvertBoolArrayToByte(byte));
 		byte.clear();
 	}
+}
+
+bool BuildFromExpression(DNF::Expression Expression, uint32_t iNumRows, uint32_t iRowLength, vector<bool> &FuseList, Configs::CircuitConfig *pConfig)
+{
+	if (!Fuses::Output::IsValid(Expression.m_OutputPin, pConfig))
+	{
+		ERROR("%s", "Expression has invalid output pin");
+		return false;
+	}
+	else if (!Expression.m_Rows.size() || !iNumRows || !iRowLength)
+	{
+		ERROR("%s", "Invalid parameters");
+		return false;
+	}
+	else if (Expression.m_Rows.size() > Fuses::Output::MaximumTerms(Expression.m_OutputPin, pConfig))
+	{
+		ERROR("%s", "Too many terms for given output pin");
+		return false;
+	}
+
+	if (FuseList.size())
+		FuseList.clear();
+
+	FuseList.resize(iNumRows * iRowLength);
+
+	//	Enable Output.
+
+	std::fill(FuseList.begin(), FuseList.begin() + iRowLength, true);
+
+	//	Start writing DNF terms.
+
+	for (uint32_t TermIndex = 0; TermIndex < Expression.m_Rows.size(); TermIndex++)
+	{
+		std::fill(FuseList.begin() + iRowLength + TermIndex * iRowLength, FuseList.begin() + iRowLength + TermIndex * iRowLength + iRowLength, true);
+
+		for (uint32_t PinIndex = 0; PinIndex < Expression.m_Rows[TermIndex].m_Pins.size(); PinIndex++)
+		{
+			int Index = Fuses::PinToIndex(
+				Expression.m_Rows[TermIndex].m_Pins[PinIndex].m_PinNumber,
+				Expression.m_Rows[TermIndex].m_Pins[PinIndex].m_Inverted,
+				Expression.m_EnableFlipFlop ? MacrocellMode::MODE_REGISTERED_HIGH : MacrocellMode::MODE_COMBINATORIAL_HIGH,
+				pConfig);
+
+			if (Index == -1)
+			{
+				ERROR("%s", "Couldn't resolve PIN index");
+				return false;
+			}
+
+			FuseList[iRowLength + TermIndex * iRowLength + Index] = false;
+		}
+	}
+
+	return true;
 }
 
 int main(int argc, char *argv[])
@@ -222,19 +190,17 @@ int main(int argc, char *argv[])
 
 	Configs::CircuitConfig *ConfigPtr = std::addressof(Config);
 
-	uint32_t iRowLength = Fuses::GetRowLength(ConfigPtr);
-	uint32_t iNumRows = Fuses::Output::MaximumTerms(Expressions[0].m_OutputPin, ConfigPtr) + 1;
-
-	if (!Fuses::BuildFromExpression(Expressions[0], iNumRows, iRowLength, Fuses, ConfigPtr))
+	if (!Fuses::Build(Expressions, Fuses, &Config))
 	{
 		ERROR("%s", "couldn't generate all fuses for given expressions");
 		return false;
 	}
 
 	printf("\n\n");
-	DNF::printNewExpression(Expressions[0]);
-	printf("\n\n");
+	for (DNF::Expression e : Expressions)
+		DNF::printNewExpression(e);
+	printf("\n\nFuses %ld\n", Fuses.size());
 	printf("vec![");
 	printFusesBytes(Fuses);
-	printf("]");
+	printf("]\n");
 }

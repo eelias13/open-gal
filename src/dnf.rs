@@ -88,54 +88,13 @@ fn uint_to_bool_vec(num: u32) -> Vec<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use lazy_static::lazy_static;
 
-    #[test]
-    fn bit_convesion() {
-        let bits = uint_to_bool_vec(5); // 5 -> 0101
-        assert_eq!(bits.len(), 32);
-        assert_eq!(
-            bits,
-            vec![
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, true, false, true
-            ]
-        );
-
-        assert_eq!(
-            uint_to_bool_vec(238934),
-            vec![
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, true, true, //
-                true, false, true, false, false, true, false, true, //
-                false, true, false, true, false, true, true, false //
-            ]
-        );
-
-        assert_eq!(
-            uint_to_bool_vec(0xff),
-            vec![
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, false, //
-                true, true, true, true, true, true, true, true //
-            ]
-        );
-
-        assert_eq!(uint_to_bool_vec(std::u32::MIN), vec![false; 32]);
-        assert_eq!(uint_to_bool_vec(std::u32::MAX), vec![true; 32]);
-    }
-
-    #[test]
-    fn expression_new() {
-        let config = CircuitConfig::new(
+    lazy_static! {
+        static ref CONFIG: super::CircuitConfig = super::CircuitConfig::new(
             5892,
             24,
-            vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            ],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,],
             vec![
                 (14, 8),
                 (15, 10),
@@ -150,75 +109,116 @@ mod tests {
             ],
             vec![(13, 42)],
         );
+    }
 
+    #[test]
+    fn bit_convesion() {
+        let bits = super::uint_to_bool_vec(5); // 5 -> 0101
+        assert_eq!(bits.len(), 32);
+        assert_eq!(
+            bits,
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, true, false, true
+            ]
+        );
+
+        assert_eq!(
+            super::uint_to_bool_vec(238934),
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, true, true, //
+                true, false, true, false, false, true, false, true, //
+                false, true, false, true, false, true, true, false //
+            ]
+        );
+
+        assert_eq!(
+            super::uint_to_bool_vec(0xff),
+            vec![
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, false, //
+                true, true, true, true, true, true, true, true //
+            ]
+        );
+
+        assert_eq!(super::uint_to_bool_vec(std::u32::MIN), vec![false; 32]);
+        assert_eq!(super::uint_to_bool_vec(std::u32::MAX), vec![true; 32]);
+    }
+
+    #[test]
+    fn expression_new() {
         let table_data = vec![
-            TableData::new(
+            super::TableData::new(
                 vec![3, 2],
                 23,
                 //   00    01     10     11
                 vec![true, true, false, true],
                 true,
             ),
-            TableData::new(vec![10, 11], 23, vec![false, false, true, false], true),
-            TableData::new(vec![10, 11], 17, vec![false, false, false, true], false),
-            TableData::new(vec![10, 11], 19, vec![false, true, true, false], false),
-            TableData::new(vec![10, 11], 18, vec![false, true, true, true], false),
+            super::TableData::new(vec![10, 11], 23, vec![false, false, true, false], true),
+            super::TableData::new(vec![10, 11], 17, vec![false, false, false, true], false),
+            super::TableData::new(vec![10, 11], 19, vec![false, true, true, false], false),
+            super::TableData::new(vec![10, 11], 18, vec![false, true, true, true], false),
         ];
 
         let expressions = vec![
-            Expression {
+            super::Expression {
                 out_pin: 23,
                 enable_flip_flop: true,
                 rows: vec![
-                    Row {
-                        pins: vec![Pin::new(true, 3), Pin::new(true, 2)],
+                    super::Row {
+                        pins: vec![super::Pin::new(true, 3), super::Pin::new(true, 2)],
                     },
-                    Row {
-                        pins: vec![Pin::new(false, 3), Pin::new(true, 2)],
+                    super::Row {
+                        pins: vec![super::Pin::new(false, 3), super::Pin::new(true, 2)],
                     },
-                    Row {
-                        pins: vec![Pin::new(false, 3), Pin::new(false, 2)],
+                    super::Row {
+                        pins: vec![super::Pin::new(false, 3), super::Pin::new(false, 2)],
                     },
                 ],
             },
-            Expression {
+            super::Expression {
                 out_pin: 23,
                 enable_flip_flop: true,
-                rows: vec![Row {
-                    pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                rows: vec![super::Row {
+                    pins: vec![super::Pin::new(false, 11), super::Pin::new(true, 10)],
                 }],
             },
-            Expression {
+            super::Expression {
                 out_pin: 17,
                 enable_flip_flop: false,
-                rows: vec![Row {
-                    pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                rows: vec![super::Row {
+                    pins: vec![super::Pin::new(false, 11), super::Pin::new(false, 10)],
                 }],
             },
-            Expression {
+            super::Expression {
                 out_pin: 19,
                 enable_flip_flop: false,
                 rows: vec![
-                    Row {
-                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    super::Row {
+                        pins: vec![super::Pin::new(true, 11), super::Pin::new(false, 10)],
                     },
-                    Row {
-                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    super::Row {
+                        pins: vec![super::Pin::new(false, 11), super::Pin::new(true, 10)],
                     },
                 ],
             },
-            Expression {
+            super::Expression {
                 out_pin: 18,
                 enable_flip_flop: false,
                 rows: vec![
-                    Row {
-                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    super::Row {
+                        pins: vec![super::Pin::new(true, 11), super::Pin::new(false, 10)],
                     },
-                    Row {
-                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    super::Row {
+                        pins: vec![super::Pin::new(false, 11), super::Pin::new(true, 10)],
                     },
-                    Row {
-                        pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                    super::Row {
+                        pins: vec![super::Pin::new(false, 11), super::Pin::new(false, 10)],
                     },
                 ],
             },
@@ -226,7 +226,7 @@ mod tests {
 
         for i in 0..table_data.len() {
             assert_eq!(
-                Expression::new(&table_data[i], &config),
+                super::Expression::new(&table_data[i], &CONFIG),
                 Ok(expressions[i].clone())
             );
         }

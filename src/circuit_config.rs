@@ -65,7 +65,6 @@ fn vec_u32_pair(json: &Value) -> Option<Vec<(u32, u32)>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[cfg(cli)]
     #[test]

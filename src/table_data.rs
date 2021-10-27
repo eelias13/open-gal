@@ -114,7 +114,6 @@ pub fn to_json_vec(table_data: &Vec<TableData>) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[cfg(cli)]
     #[test]
     fn json_conversion() {

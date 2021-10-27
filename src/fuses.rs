@@ -14,10 +14,19 @@ fn build_from_expression(
         return Err("Too many terms for given output pin".to_string());
     }
 
-    let mut fuse_list = vec![true; (num_rows * row_length) as usize];
+    let mut fuse_list = vec![false; (num_rows * row_length) as usize];
+
+    for i in 0..row_length as usize {
+        fuse_list[i] = true;
+    }
 
     //	Start writing DNF terms.
     for term_index in 0..expression.rows.len() {
+        for i in 0..row_length {
+            let index = (row_length + term_index as u32 * row_length + i) as usize;
+            fuse_list[index] = true;
+        }
+
         for pin_index in 0..expression.rows[term_index].pins.len() {
             let pin = expression.rows[term_index].pins[pin_index].clone();
 
@@ -35,88 +44,49 @@ fn build_from_expression(
     Ok(fuse_list)
 }
 
-/*
-
-bool Fuses::Build(vector<DNF::Expression> Expressions, vector<bool>& FuseListOut, Configs::CircuitConfig* pConfig)
-{
-    if (!Expressions.size())
-    {
-        ERROR("%s", "No expressions were given");
-        return false;
-    }
-
+fn build(expressions: &Vec<Expression>, config: &CircuitConfig) -> Result<Vec<bool>, String> {
     //	Get row length for one DNF term.
-
-    uint32_t iRowLength = Fuses::GetRowLength(pConfig);
-
-    if (FuseListOut.size())
-        FuseListOut.clear();
+    let row_len = get_row_length(config);
 
     //	Adjust fuselist size to the fuse list size of the integrated circuit.
-
-    FuseListOut.resize(pConfig->m_iNumFuses);
-
     //	Set AR Fuses to zero (we don't need them as of yet)
-
-    std:fill(FuseListOut.begin(), FuseListOut.begin() + iRowLength, false);
+    let mut fuse_list_out = vec![false; config.num_fuses as usize];
 
     //	Start writing expressions to FuseList.
+    for index in 0..expressions.len() {
+        let exp_index_start = get_first_fuse_index(expressions[index].out_pin, config)? as usize;
+        let num_rows = maximum_terms(expressions[index].out_pin, config)?;
 
-    for(uint32_t Index = 0; Index < Expressions.size(); Index++)
-    {
-        uint32_t ExpIndexStart = Fuses::Output::GetFirstFuseIndex(Expressions[Index].m_OutputPin, pConfig);
-
-        if(ExpIndexStart == -1)
-        {
-            ERROR("%s", "Couldn't get fuse index start");
-            return false;
-        }
-
-        vector<bool> ExpressionBuffer;
-
-        if (!Fuses::BuildFromExpression(Expressions[Index], Fuses::Output::MaximumTerms(Expressions[Index].m_OutputPin, pConfig) + 1, iRowLength, ExpressionBuffer, pConfig))
-        {
-            ERROR("%s", "Couldn't build all expression fuses");
-            return false;
-        }
+        let expression_buffer =
+            build_from_expression(&expressions[index], num_rows + 1, row_len, config)?;
 
         //	Copy ExpressionBuffer into the correct target destination in the fuse matrix.
-
-        std::copy(ExpressionBuffer.begin(), ExpressionBuffer.end(), FuseListOut.begin() + ExpIndexStart);
+        for i in 0..expression_buffer.len() {
+            fuse_list_out[i + exp_index_start] = expression_buffer[i];
+        }
     }
 
     //	Set SP fuses to zero because we also don't need them as of yet.
-
-    uint32_t iLastFuseIDX = Fuses::Output::GetLastFuseIndex(pConfig->m_Outputs.front().first, pConfig);
-    std::fill(FuseListOut.begin() + iLastFuseIDX, FuseListOut.begin() + iLastFuseIDX + iRowLength, false);
+    let last_fuse_idx = get_last_fuse_index(config.outputs.first().unwrap().0, config)?;
+    for i in 0..row_len {
+        fuse_list_out[(i + last_fuse_idx) as usize] = false;
+    }
 
     //	Set S0 & S1 fuses.
+    for expr in expressions {
+        let mode_fuses = mode_fuse_indices(expr.out_pin, config)?;
 
-    for(DNF::Expression Expression : Expressions)
-    {
-        pair<uint32_t, uint32_t> ModeFuses;
-
-        if(!Fuses::Output::ModeFuseIndices(Expression.m_OutputPin, ModeFuses, pConfig))
-        {
-            ERROR("%s", "Invalid PIN");
-            return false;
-        }
-
-        if(Expression.m_EnableFlipFlop)
-        {
-            FuseListOut[ModeFuses.first] = 1;
-            FuseListOut[ModeFuses.second] = 0;
-        }
-        else
-        {
-            FuseListOut[ModeFuses.first] = 1;
-            FuseListOut[ModeFuses.second] = 1;
+        if expr.enable_flip_flop {
+            fuse_list_out[(mode_fuses.0) as usize] = true;
+            fuse_list_out[(mode_fuses.1) as usize] = false;
+        } else {
+            fuse_list_out[(mode_fuses.0) as usize] = true;
+            fuse_list_out[(mode_fuses.1) as usize] = true;
         }
     }
 
-    return true;
+    Ok(fuse_list_out)
 }
-*/
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum MacrocellMode {
@@ -151,11 +121,7 @@ fn is_valid(pin_num: u32, config: &CircuitConfig) -> bool {
 /// The return value is a boolean which indicates if the fuse pair was written to the given
 /// std::pair reference. The function will only return false if the given pin number is
 /// an input pin who has no OLMC connected and therefore no control mode pin.
-fn mode_fuse_indices(
-    pin_num: u32,
-    fuses_out: &mut (u32, u32),
-    config: &CircuitConfig,
-) -> Result<(u32, u32), String> {
+fn mode_fuse_indices(pin_num: u32, config: &CircuitConfig) -> Result<(u32, u32), String> {
     if !is_valid(pin_num, config) {
         return Err(String::new());
     }
@@ -182,7 +148,7 @@ fn get_first_fuse_index(pin_num: u32, config: &CircuitConfig) -> Result<u32, Str
 
     let mut fuse_index = get_row_length(config);
 
-    let mut olmc = config.outputs.last().unwrap().0; // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    let mut olmc = config.outputs.last().unwrap().0;
     while olmc > pin_num {
         fuse_index += (maximum_terms(olmc, config)? + 1) * get_row_length(config);
         olmc -= 1;
@@ -272,10 +238,222 @@ fn pin_to_index(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     use crate::dnf::Pin;
     use crate::dnf::Row;
+
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        static ref CONFIG: super::CircuitConfig = super::CircuitConfig::new(
+            5892,
+            24,
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+    }
+
+    #[test]
+    fn convert_bool_array_to_byte_test() {
+        assert_eq!(convert_bool_array_to_byte(&vec![true; 8]), 0xff);
+        assert_eq!(convert_bool_array_to_byte(&vec![false; 8]), 0x00);
+    }
+
+    #[test]
+    fn fuses_as_bytes_test() {
+        let fuses = vec![true; 9];
+        assert_eq!(fuses_as_bytes(fuses), vec![255, 128])
+    }
+
+    #[test]
+    fn maximum_terms() {
+        assert_eq!(super::maximum_terms(23, &CONFIG), Ok(8));
+    }
+
+    #[test]
+    fn get_row_length() {
+        assert_eq!(super::get_row_length(&CONFIG), 44);
+    }
+
+    #[test]
+    fn expression() {
+        let expression = super::Expression {
+            out_pin: 23,
+            enable_flip_flop: true,
+            rows: vec![Row {
+                pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+            }],
+        };
+
+        let row_length = super::get_row_length(&CONFIG);
+        let num_rows = super::maximum_terms(expression.out_pin, &CONFIG).unwrap();
+
+        let result =
+            super::build_from_expression(&expression, num_rows + 1, row_length, &CONFIG).unwrap();
+
+        assert_eq!(result.len(), 396);
+        let bytes = fuses_as_bytes(result);
+        assert_eq!(
+            bytes,
+            vec![
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xB7, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ]
+        );
+    }
+
+    #[test]
+    fn expressions() {
+        use super::Expression;
+
+        let expressions = vec![
+            Expression {
+                out_pin: 23,
+                enable_flip_flop: true,
+                rows: vec![Row {
+                    pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                }],
+            },
+            Expression {
+                out_pin: 17,
+                enable_flip_flop: false,
+                rows: vec![Row {
+                    pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                }],
+            },
+            Expression {
+                out_pin: 19,
+                enable_flip_flop: false,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    },
+                ],
+            },
+            Expression {
+                out_pin: 18,
+                enable_flip_flop: false,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 11), Pin::new(false, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 11), Pin::new(false, 10)],
+                    },
+                ],
+            },
+            Expression {
+                out_pin: 23,
+                enable_flip_flop: true,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 2), Pin::new(true, 3)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(true, 2), Pin::new(false, 3)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 2), Pin::new(false, 3)],
+                    },
+                ],
+            },
+            Expression {
+                out_pin: 23,
+                enable_flip_flop: true,
+                rows: vec![
+                    Row {
+                        pins: vec![Pin::new(true, 2), Pin::new(false, 3)],
+                    },
+                    Row {
+                        pins: vec![Pin::new(false, 2), Pin::new(true, 3)],
+                    },
+                ],
+            },
+        ];
+
+        let result = super::build(&expressions, &CONFIG).unwrap();
+
+        assert_eq!(result.len(), 5892);
+        let bytes = fuses_as_bytes(result);
+        assert_eq!(
+            bytes,
+            vec![
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB, 0x7F, 0xFF,
+                0xFF, 0xFF, 0xFF, 0x7B, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF7,
+                0xBF, 0xFF, 0xFF, 0xFF, 0xFF, 0xB7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7B, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFB, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0x77, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xF7, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xFC,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ]
+        );
+    }
 
     fn convert_bool_array_to_byte(byte: &Vec<bool>) -> u8 {
         let mut result = 0;
@@ -302,64 +480,5 @@ mod tests {
             result.push(convert_bool_array_to_byte(&byte));
         }
         result
-    }
-
-    #[test]
-    fn convert_bool_array_to_byte_test() {
-        assert_eq!(convert_bool_array_to_byte(&vec![true; 8]), 0xff);
-        assert_eq!(convert_bool_array_to_byte(&vec![false; 8]), 0x00);
-    }
-
-    #[test]
-    fn fuses_as_bytes_test() {
-        let fuses = vec![true; 9];
-        assert_eq!(fuses_as_bytes(fuses), vec![255, 128])
-    }
-
-    #[test]
-    fn expression() {
-        let config = CircuitConfig::new(
-            5892,
-            24,
-            vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            ],
-            vec![
-                (14, 8),
-                (15, 10),
-                (16, 12),
-                (17, 14),
-                (18, 16),
-                (19, 16),
-                (20, 14),
-                (21, 12),
-                (22, 10),
-                (23, 8),
-            ],
-            vec![(13, 42)],
-        );
-
-        let expression = Expression {
-            out_pin: 23,
-            enable_flip_flop: true,
-            rows: vec![Row {
-                pins: vec![Pin::new(false, 11), Pin::new(true, 10)],
-            }],
-        };
-        let pin_num = 0;
-
-        let row_length = get_row_length(&config); // Fuses::GetRowLength(ConfigPtr);
-        let num_rows = maximum_terms(pin_num, &config).unwrap(); // Fuses::Output::MaximumTerms(Expressions[0].m_OutputPin, ConfigPtr) + 1;
-        let result = build_from_expression(&expression, num_rows, row_length, &config).unwrap();
-        let bytes = fuses_as_bytes(result);
-        assert_eq!(
-            bytes,
-            vec![
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xB7, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            ]
-        );
     }
 }
