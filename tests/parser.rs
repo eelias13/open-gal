@@ -1,5 +1,5 @@
 mod tests {
-    use open_gal::*;
+    use open_gal::{parse, TableData};
 
     #[test]
     fn easy_gal() {
