@@ -2,10 +2,11 @@ mod circuit_config;
 mod constants;
 mod parser;
 mod table_data;
-pub mod translator;
+mod translator;
 
 pub use circuit_config::CircuitConfig;
 pub use table_data::TableData;
+pub use translator::core::to_jedec;
 
 pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, String> {
     match parser::core::parse(data) {

@@ -1,5 +1,5 @@
-//	Version string for JEDEC file
-const OPENGAL_VERSION: &str = "open-gal 0.1.0";
+// use crate::constants::OPENGAL_VERSION; could not find `constants` in the crate root ?????
+pub const OPENGAL_VERSION: &str = "open-gal 0.1.0";
 
 //	Needed JEDEC field identifiers ("http://www.pldtool.com/pdf/fmt_jedec.pdf").
 // const ID_NOTE: char = 'N';
