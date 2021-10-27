@@ -1,9 +1,9 @@
 use crate::constants::{AND, NOT, OR, XOR};
-use crate::error::ParsingError;
-use crate::token::{Token, TokenType};
+use crate::parser::error::ParsingError;
+use crate::parser::token::{Token, TokenType};
 
-pub struct Lexer {
-    data: Vec<String>,
+pub struct Lexer<'a> {
+    data: &'a Vec<String>,
     line_index: usize,
     char_index: usize,
     current_line: String,
@@ -13,17 +13,22 @@ pub struct Lexer {
     eol: bool, // end of line by last char
 }
 
-impl Lexer {
-    pub fn new(data: Vec<String>) -> Self {
-        Lexer {
-            data: data.clone(),
-            line_index: 0,
-            char_index: 0,
-            current_line: data[0].clone(),
-            current_char: data[0].chars().nth(0).unwrap(),
-            tokens: Vec::<Token>::new(),
-            eof: false,
-            eol: false,
+impl<'a> Lexer<'a> {
+    pub fn new(data: &'a Vec<String>) -> Self {
+        let current_line = data[0].clone();
+        if let Some(current_char) = current_line.clone().chars().nth(0) {
+            Self {
+                data,
+                line_index: 0,
+                char_index: 0,
+                current_line,
+                current_char,
+                tokens: Vec::new(),
+                eof: false,
+                eol: false,
+            }
+        } else {
+            panic!("can not initilize lexer because data.len() == 0");
         }
     }
 
@@ -56,25 +61,25 @@ impl Lexer {
         self.current_char = self.current_line.chars().nth(self.char_index).unwrap();
     }
 
-    pub fn lex(&mut self) -> Vec<Token> {
+    pub fn lex(&mut self) -> Result<Vec<Token>, ParsingError> {
         while !self.eof {
-            if self.lex_char() {
+            if self.lex_char()? {
                 continue;
             }
 
-            if self.lex_num() {
+            if self.lex_num()? {
                 continue;
             }
 
-            if self.lex_identifier() {
+            if self.lex_identifier()? {
                 continue;
             }
 
-            if self.lex_arrow() {
+            if self.lex_arrow()? {
                 continue;
             }
 
-            if self.lex_comment() {
+            if self.lex_comment()? {
                 continue;
             }
 
@@ -89,15 +94,15 @@ impl Lexer {
                 format!("unexpected character <{}>", self.current_char),
                 self.data.clone(),
             );
-            err.panic();
+            return Err(err);
         }
 
-        self.tokens.clone()
+        return Ok(self.tokens.clone());
     }
 
-    fn lex_comment(&mut self) -> bool {
+    fn lex_comment(&mut self) -> Result<bool, ParsingError> {
         if self.current_char != '/' {
-            return false;
+            return Ok(false);
         }
 
         let is_multiline;
@@ -127,8 +132,7 @@ impl Lexer {
                         ),
                         self.data.clone(),
                     );
-                    err.panic();
-                    unreachable!();
+                    return Err(err);
                 }
             };
         } else {
@@ -143,8 +147,7 @@ impl Lexer {
                 "unexpected line braek expected <*, /> got <new line>".to_string(),
                 self.data.clone(),
             );
-            err.panic();
-            unreachable!();
+            return Err(err);
         }
         comment.push(self.current_char);
         self.next();
@@ -177,8 +180,7 @@ impl Lexer {
                         ),
                         self.data.clone(),
                     );
-                    err.panic();
-                    unreachable!();
+                    return Err(err);
                 }
             }
         } else {
@@ -193,16 +195,14 @@ impl Lexer {
             begin_char,
             len_char: comment.len(),
             len_line: self.line_index - begin_line + 1,
-            token_type: TokenType::Ignore {
-                comment: Some(comment),
-            },
+            token_type: TokenType::Ignore(Some(comment)),
         });
-        true
+        Ok(true)
     }
 
-    fn lex_identifier(&mut self) -> bool {
+    fn lex_identifier(&mut self) -> Result<bool, ParsingError> {
         if !Self::is_letter(self.current_char) {
-            return false;
+            return Ok(false);
         }
 
         let mut name = String::new();
@@ -226,7 +226,7 @@ impl Lexer {
             "count" => TokenType::Count,
             "fill" => TokenType::Fill,
             "dff" => TokenType::Dff,
-            _ => TokenType::Identifier { name: name.clone() },
+            _ => TokenType::Identifier(name.clone()),
         };
 
         self.tokens.push(Token {
@@ -237,10 +237,10 @@ impl Lexer {
             token_type,
         });
 
-        true
+        Ok(true)
     }
 
-    fn lex_arrow(&mut self) -> bool {
+    fn lex_arrow(&mut self) -> Result<bool, ParsingError> {
         if self.current_char == '-' {
             self.next();
             if self.current_char == '>' {
@@ -252,7 +252,7 @@ impl Lexer {
                     token_type: TokenType::Arrow,
                 });
                 self.next();
-                true
+                Ok(true)
             } else {
                 let err = ParsingError::from_token(
                     Token {
@@ -268,19 +268,18 @@ impl Lexer {
                     ),
                     self.data.clone(),
                 );
-                err.panic();
-                unreachable!();
+                Err(err)
             }
         } else {
-            false
+            Ok(false)
         }
     }
 
-    fn lex_num(&mut self) -> bool {
+    fn lex_num(&mut self) -> Result<bool, ParsingError> {
         let begin_char = self.char_index;
         let first_char = self.current_char;
         if !Self::is_digit(first_char) {
-            return false;
+            return Ok(false);
         }
 
         let mut num_chars = String::new();
@@ -303,13 +302,12 @@ impl Lexer {
                                 begin_line: self.line_index,
                                 len_char: num_chars.len(),
                                 len_line: 1,
-                                token_type: TokenType::BoolTable { table: Vec::new() },
+                                token_type: TokenType::BoolTable(Vec::new()),
                             },
                             format!("expectet <0, 1> got <{}>", self.current_char),
                             self.data.clone(),
                         );
-                        err.panic();
-                        unreachable!();
+                        return Err(err);
                     }
 
                     if is_bool {
@@ -329,12 +327,10 @@ impl Lexer {
                 begin_line: self.line_index,
                 len_char: num_chars.len(),
                 len_line: 1,
-                token_type: TokenType::BoolTable {
-                    table: num_chars.chars().map(|c| c == '1').collect(),
-                },
+                token_type: TokenType::BoolTable(num_chars.chars().map(|c| c == '1').collect()),
             });
 
-            true
+            Ok(true)
         } else {
             let mut num_str = String::new();
             num_chars.chars().for_each(|c| num_str.push(c));
@@ -348,7 +344,7 @@ impl Lexer {
                         begin_line: self.line_index,
                         len_char: num_chars.len(),
                         len_line: 1,
-                        token_type: TokenType::Number { value: 0 },
+                        token_type: TokenType::Number(0),
                     },
                     format!(
                         "parsing error while parsing number expectet <[0-9]> got <{}>",
@@ -356,8 +352,7 @@ impl Lexer {
                     ),
                     self.data.clone(),
                 );
-                err.panic();
-                unreachable!();
+                return Err(err);
             }
 
             self.tokens.push(Token {
@@ -365,16 +360,14 @@ impl Lexer {
                 begin_line: self.line_index,
                 len_char: num_chars.len(),
                 len_line: 1,
-                token_type: TokenType::Number {
-                    value: num_str.parse().unwrap(),
-                },
+                token_type: TokenType::Number(num_str.parse().unwrap()),
             });
 
-            true
+            Ok(true)
         }
     }
 
-    fn lex_char(&mut self) -> bool {
+    fn lex_char(&mut self) -> Result<bool, ParsingError> {
         let token_type_option = match self.current_char {
             AND => Some(TokenType::And),
             OR => Some(TokenType::Or),
@@ -393,9 +386,9 @@ impl Lexer {
             '=' => Some(TokenType::Equals),
             '.' => Some(TokenType::Dot),
 
-            ' ' => Some(TokenType::Ignore { comment: None }),
-            '\t' => Some(TokenType::Ignore { comment: None }),
-            '\n' => Some(TokenType::Ignore { comment: None }),
+            ' ' => Some(TokenType::Ignore(None)),
+            '\t' => Some(TokenType::Ignore(None)),
+            '\n' => Some(TokenType::Ignore(None)),
 
             _ => None,
         };
@@ -409,9 +402,9 @@ impl Lexer {
                 token_type,
             });
             self.next();
-            true
+            Ok(true)
         } else {
-            false
+            Ok(false)
         }
     }
 
@@ -446,39 +439,34 @@ mod tests {
 
     #[test]
     fn test_num() {
-        let mut lexer = Lexer::new(convert(vec!["123 010", "102 2 349645", "1 0 101 11"]));
-        let input = lexer.lex();
+        let data = convert(vec!["123 010", "102 2 349645", "1 0 101 11"]);
+        let mut lexer = Lexer::new(&data);
+        let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
             vec![
-                TokenType::Number { value: 123 },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![false, true, false],
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Number(123),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false, true, false]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Number { value: 102 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 349645 },
-                TokenType::Ignore { comment: None },
+                TokenType::Number(102),
+                TokenType::Ignore(None),
+                TokenType::Number(2),
+                TokenType::Ignore(None),
+                TokenType::Number(349645),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::BoolTable { table: vec![true] },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![false] },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, false, true],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, true],
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::BoolTable(vec![true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, false, true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, true]),
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -489,15 +477,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn panic_num() {
-        let mut lexer = Lexer::new(convert(vec!["0103"]));
-        let _ = lexer.lex();
+        let data = convert(vec!["0103"]);
+        let mut lexer = Lexer::new(&data);
+        assert_eq!(
+            lexer.lex(),
+            Err(ParsingError::new(
+                0,
+                0,
+                3,
+                1,
+                "expectet <0, 1> got <3>".to_string(),
+                data
+            ))
+        );
     }
 
     #[test]
     fn lexer_next() {
-        let input = convert(vec![
+        let data = convert(vec![
             "this is line one",
             "abc",
             "",
@@ -505,9 +503,9 @@ mod tests {
             "123 010",
             "102 2 349645",
         ]);
-        let mut lexer = Lexer::new(input.clone());
+        let mut lexer = Lexer::new(&data);
 
-        for (index, str_in) in input.iter().enumerate() {
+        for (index, str_in) in data.iter().enumerate() {
             assert_eq!(index, lexer.line_index, "line_index");
             assert_eq!(str_in, &lexer.current_line);
 
@@ -539,42 +537,39 @@ mod tests {
 
     #[test]
     fn chars() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             format!("{}{}", AND, OR).as_ref(),
             format!("{}{}{}{}", XOR, XOR, NOT, AND).as_ref(),
             "([",
             "{ ; }])",
             ".,==.,",
-        ]));
+        ]);
+        let mut lexer = Lexer::new(&data);
 
-        let input = lexer.lex();
+        let input = lexer.lex().unwrap();
         let output = Token::vec(vec![
-            vec![
-                TokenType::And,
-                TokenType::Or,
-                TokenType::Ignore { comment: None },
-            ],
+            vec![TokenType::And, TokenType::Or, TokenType::Ignore(None)],
             vec![
                 TokenType::Xor,
                 TokenType::Xor,
                 TokenType::Not,
                 TokenType::And,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::RoundOpen,
                 TokenType::SquareOpen,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::CurlyOpen,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::CurlyClose,
                 TokenType::SquareClose,
                 TokenType::RoundClose,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::Dot,
@@ -583,7 +578,7 @@ mod tests {
                 TokenType::Equals,
                 TokenType::Dot,
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -599,38 +594,33 @@ mod tests {
 
     #[test]
     fn doc_example() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "pin in = 2;",
             "",
             format!("{}1010 // comment", AND).as_ref(),
-        ]));
-        let input = lexer.lex();
+        ]);
+        let mut lexer = Lexer::new(&data);
+        let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
             vec![
                 TokenType::Pin,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "in".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::Identifier("in".to_string()),
+                TokenType::Ignore(None),
                 TokenType::Equals,
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
+                TokenType::Ignore(None),
+                TokenType::Number(2),
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
-            vec![TokenType::Ignore { comment: None }],
+            vec![TokenType::Ignore(None)],
             vec![
                 TokenType::And,
-                TokenType::BoolTable {
-                    table: vec![true, false, true, false],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Ignore {
-                    comment: Some("// comment".to_string()),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::BoolTable(vec![true, false, true, false]),
+                TokenType::Ignore(None),
+                TokenType::Ignore(Some("// comment".to_string())),
+                TokenType::Ignore(None),
             ],
         ]);
 
@@ -642,13 +632,14 @@ mod tests {
 
     #[test]
     fn test_arrow() {
-        let mut lexer = Lexer::new(convert(vec![" ->"]));
-        let input = lexer.lex();
+        let data = convert(vec![" ->"]);
+        let mut lexer = Lexer::new(&data);
+        let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![vec![
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
             TokenType::Arrow,
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
         ]]);
 
         assert_eq!(input.len(), output.len());
@@ -659,50 +650,43 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "ab ab3",
             "c_f_g ",
             "pin table fill.count",
             "pin1",
             "dff",
-        ]));
-        let input = lexer.lex();
+        ]);
+        let mut lexer = Lexer::new(&data);
+        let input = lexer.lex().unwrap();
 
         let output = Token::vec(vec![
             vec![
-                TokenType::Identifier {
-                    name: "ab".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "ab3".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("ab".to_string()),
+                TokenType::Ignore(None),
+                TokenType::Identifier("ab3".to_string()),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Identifier {
-                    name: "c_f_g".to_string(),
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("c_f_g".to_string()),
+                TokenType::Ignore(None),
+                TokenType::Ignore(None),
             ],
             vec![
                 TokenType::Pin,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Table,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::Fill,
                 TokenType::Dot,
                 TokenType::Count,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Identifier {
-                    name: "pin1".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("pin1".to_string()),
+                TokenType::Ignore(None),
             ],
-            vec![TokenType::Dff, TokenType::Ignore { comment: None }],
+            vec![TokenType::Dff, TokenType::Ignore(None)],
         ]);
 
         assert_eq!(input.len(), output.len());
@@ -712,14 +696,15 @@ mod tests {
     }
     #[test]
     fn test_comments() {
-        let mut lexer = Lexer::new(convert(vec![
+        let data = convert(vec![
             "// one line comment",
             "",
             "/*",
             "multi line comment",
             "*/",
-        ]));
-        let input = lexer.lex();
+        ]);
+        let mut lexer = Lexer::new(&data);
+        let input = lexer.lex().unwrap();
 
         let mut output = Vec::<Token>::new();
 
@@ -728,16 +713,14 @@ mod tests {
             begin_char: 0,
             len_char: "// one line comment".len(),
             len_line: 1,
-            token_type: TokenType::Ignore {
-                comment: Some("// one line comment".to_string()),
-            },
+            token_type: TokenType::Ignore(Some("// one line comment".to_string())),
         });
         output.push(Token {
             begin_line: 0,
             begin_char: "// one line comment".len(),
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         output.push(Token {
@@ -745,7 +728,7 @@ mod tests {
             begin_char: 0,
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         output.push(Token {
@@ -753,9 +736,7 @@ mod tests {
             begin_char: 0,
             len_char: "/*\nmulti line comment\n*/".len(),
             len_line: 3,
-            token_type: TokenType::Ignore {
-                comment: Some("/*\nmulti line comment\n*/".to_string()),
-            },
+            token_type: TokenType::Ignore(Some("/*\nmulti line comment\n*/".to_string())),
         });
 
         output.push(Token {
@@ -763,7 +744,7 @@ mod tests {
             begin_char: 2,
             len_char: 1,
             len_line: 1,
-            token_type: TokenType::Ignore { comment: None },
+            token_type: TokenType::Ignore(None),
         });
 
         assert_eq!(input.len(), output.len());

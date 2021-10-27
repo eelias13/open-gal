@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::parser::token::Token;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum AtomType {
@@ -23,22 +23,9 @@ pub enum AtomType {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TableType {
-    Fill { value: bool },
+    Fill(bool),
     Full,
     Count,
-}
-
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub enum BoolFunc {
-    And,
-    Or,
-    Xor,
-    Not,
-    Var { name: String },
-    One,
-    Zero,
-    Open,
-    Close,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -67,14 +54,6 @@ impl Atom {
 
     pub fn begin_line(&self) -> usize {
         self.begin_line
-    }
-
-    pub fn begin_token(&self) -> usize {
-        self.begin_token
-    }
-
-    pub fn len_token(&self) -> usize {
-        self.len_token
     }
 
     pub fn atom_type(&self) -> AtomType {

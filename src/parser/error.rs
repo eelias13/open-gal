@@ -1,6 +1,8 @@
-use crate::atom::Atom;
-use crate::token::*;
+use crate::parser::atom::Atom;
+use crate::parser::token::*;
+use std::fmt;
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct ParsingError {
     begin_line: usize,
     begin_char: usize,
@@ -11,6 +13,25 @@ pub struct ParsingError {
 }
 
 impl ParsingError {
+    #[cfg(test)]
+    pub fn new(
+        begin_line: usize,
+        begin_char: usize,
+        len_char: usize,
+        len_line: usize,
+        msg: String,
+        data: Vec<String>,
+    ) -> Self {
+        Self {
+            begin_line,
+            begin_char,
+            len_char,
+            len_line,
+            msg,
+            data,
+        }
+    }
+
     pub fn from_token(token: Token, msg: String, data: Vec<String>) -> Self {
         Self {
             begin_line: token.begin_line(),
@@ -38,20 +59,20 @@ impl ParsingError {
         for tt in expect.clone() {
             // ther has to be an easyer way can not use equal because of value feald
             match tt {
-                TokenType::Identifier { name: _ } => match got_type {
-                    TokenType::Identifier { name: _ } => {
+                TokenType::Identifier(_) => match got_type {
+                    TokenType::Identifier(_) => {
                         return None;
                     }
                     _ => {}
                 },
-                TokenType::BoolTable { table: _ } => match got_type {
-                    TokenType::BoolTable { table: _ } => {
+                TokenType::BoolTable(_) => match got_type {
+                    TokenType::BoolTable(_) => {
                         return None;
                     }
                     _ => {}
                 },
-                TokenType::Number { value: _ } => match got_type {
-                    TokenType::Number { value: _ } => {
+                TokenType::Number(_) => match got_type {
+                    TokenType::Number(_) => {
                         return None;
                     }
                     _ => {}
@@ -74,8 +95,18 @@ impl ParsingError {
             data,
         })
     }
+}
 
-    pub fn panic(self) {
+/*
+impl fmt::Debug for ParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+*/
+
+impl fmt::Display for ParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut line = String::new();
         for i in self.begin_line..(self.begin_line + self.len_line - 1) {
             println!("begin {} len {}", self.begin_line, self.len_line);
@@ -91,12 +122,13 @@ impl ParsingError {
         line.push('\n');
         line.push_str(under.as_str());
 
-        panic!(
+        write!(
+            f,
             "{} \n{} at line <{}> at index <{}>",
             line,
             self.msg,
             self.begin_line + 1,
             self.begin_char
-        );
+        )
     }
 }

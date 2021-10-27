@@ -1,22 +1,22 @@
-use crate::atom::{Atom, AtomType, TableType};
 use crate::constants::NUM_FIRST;
-use crate::error::ParsingError;
-use crate::token::{Token, TokenType};
+use crate::parser::atom::{Atom, AtomType, TableType};
+use crate::parser::error::ParsingError;
+use crate::parser::token::{Token, TokenType};
 
-pub struct Atomizer {
-    data: Vec<String>,
-    tokens: Vec<Token>,
+pub struct Atomizer<'a> {
+    data: &'a Vec<String>,
+    tokens: &'a Vec<Token>,
     index: usize,
     atoms: Vec<Atom>,
     current_token: Token,
     is_eof: bool,
 }
 
-impl Atomizer {
-    pub fn new(data: Vec<String>, tokens: Vec<Token>) -> Self {
+impl<'a> Atomizer<'a> {
+    pub fn new(data: &'a Vec<String>, tokens: &'a Vec<Token>) -> Self {
         Atomizer {
             data,
-            tokens: tokens.clone(),
+            tokens,
             index: 0,
             atoms: Vec::<Atom>::new(),
             current_token: tokens[0].clone(),
@@ -24,26 +24,23 @@ impl Atomizer {
         }
     }
 
-    pub fn atomize(&mut self) -> Vec<Atom> {
+    pub fn atomize(&mut self) -> Result<Vec<Atom>, ParsingError> {
         while !self.is_eof {
             match self.current() {
-                TokenType::Pin => self.atomize_pin(),
-                TokenType::Table => self.atomize_table(),
-                TokenType::Identifier { name: _ } => self.atomize_identifiers(),
+                TokenType::Pin => self.atomize_pin()?,
+                TokenType::Table => self.atomize_table()?,
+                TokenType::Identifier(_) => self.atomize_identifiers()?,
                 _ => {
                     self.expect_multible(vec![
                         TokenType::Pin,
                         TokenType::Table,
-                        TokenType::Identifier {
-                            name: String::new(),
-                        },
-                    ]);
-                    unreachable!();
+                        TokenType::Identifier(String::new()),
+                    ])?;
                 }
             }
         }
 
-        self.atoms.clone()
+        Ok(self.atoms.clone())
     }
 
     fn next(&mut self) {
@@ -62,7 +59,7 @@ impl Atomizer {
         }
 
         match self.current_token.token_type() {
-            TokenType::Ignore { comment: _ } => {
+            TokenType::Ignore(_) => {
                 self.next();
             }
             _ => {}
@@ -73,84 +70,85 @@ impl Atomizer {
         self.current_token.token_type()
     }
 
-    fn parse_bool(&mut self) -> bool {
+    fn parse_bool(&mut self) -> Result<bool, ParsingError> {
         match self.current() {
-            TokenType::BoolTable { table } => {
+            TokenType::BoolTable(table) => {
                 if table.len() != 1 {
                     // TODO make error
-                    ParsingError::from_token(
+                    let err = ParsingError::from_token(
                         self.current_token.clone(),
                         format!("expected <1> boolean got <{}>", table.len()),
                         self.data.clone(),
                     );
-                    unreachable!();
+                    return Err(err);
                 } else {
-                    table[0]
+                    Ok(table[0])
                 }
             }
             _ => {
-                self.expect(TokenType::BoolTable { table: Vec::new() });
+                self.expect(TokenType::BoolTable(Vec::new()))?;
                 unreachable!();
             }
         }
     }
 
-    fn expect_multible(&mut self, token_type: Vec<TokenType>) {
+    fn expect_multible(&mut self, token_type: Vec<TokenType>) -> Result<(), ParsingError> {
         if let Some(err) =
             ParsingError::expect_tokens(&self.current_token, token_type, self.data.clone())
         {
-            err.panic();
+            Err(err)
+        } else {
+            self.next();
+            Ok(())
         }
-        self.next();
     }
 
-    fn expect(&mut self, token_type: TokenType) {
-        self.expect_multible(vec![token_type]);
+    fn expect(&mut self, token_type: TokenType) -> Result<(), ParsingError> {
+        self.expect_multible(vec![token_type])?;
+        Ok(())
     }
 
-    fn parse_identifiers(&mut self) -> Vec<String> {
+    fn parse_identifiers(&mut self) -> Result<Vec<String>, ParsingError> {
         let mut result = Vec::<String>::new();
-        let first = self.get_identifier();
+        let first = self.get_identifier()?;
 
         if self.current() == TokenType::SquareOpen {
-            let nums = self.parse_num();
+            let nums = self.parse_num()?;
             for i in nums {
                 result.push(format!("{}{}", first, i));
             }
         } else {
             result.push(first);
             while self.current() == TokenType::Comma {
-                self.expect(TokenType::Comma);
-                result.push(self.get_identifier());
+                self.expect(TokenType::Comma)?;
+                result.push(self.get_identifier()?);
             }
         }
 
-        result
+        Ok(result)
     }
 
-    fn get_identifier(&mut self) -> String {
+    fn get_identifier(&mut self) -> Result<String, ParsingError> {
         let result = match self.current() {
             TokenType::Pin => "pin".to_string(),
             TokenType::Table => "table".to_string(),
             TokenType::Dff => "dff".to_string(),
             TokenType::Count => "count".to_string(),
             TokenType::Fill => "fill".to_string(),
-            TokenType::Identifier { name } => name,
+            TokenType::Identifier(name) => name,
             _ => {
-                self.expect(TokenType::Identifier {
-                    name: String::new(),
-                });
+                self.expect(TokenType::Identifier(String::new()))?;
                 unreachable!();
             }
         };
         self.next();
-        result
+        Ok(result)
     }
 
-    fn get_num(&mut self) -> u64 {
+    fn get_num(&mut self) -> Result<u64, ParsingError> {
         let result = match self.current() {
-            TokenType::Number { value } => value,
-            TokenType::BoolTable { table } => {
+            TokenType::Number(value) => value,
+            TokenType::BoolTable(table) => {
                 // convert bool vec to u64
                 let mut result = 0;
 
@@ -163,84 +161,84 @@ impl Atomizer {
                 result
             }
             _ => {
-                self.expect(TokenType::Number { value: 0 });
+                self.expect(TokenType::Number(0))?;
                 unreachable!();
             }
         };
         self.next();
-        result
+        Ok(result)
     }
 
-    fn parse_num(&mut self) -> Vec<u64> {
+    fn parse_num(&mut self) -> Result<Vec<u64>, ParsingError> {
         let mut result = Vec::<u64>::new();
         if self.current() == TokenType::SquareOpen {
-            self.expect(TokenType::SquareOpen);
-            let start = self.get_num();
-            self.expect(TokenType::Dot);
-            self.expect(TokenType::Dot);
-            let end = self.get_num();
-            self.expect(TokenType::SquareClose);
+            self.expect(TokenType::SquareOpen)?;
+            let start = self.get_num()?;
+            self.expect(TokenType::Dot)?;
+            self.expect(TokenType::Dot)?;
+            let end = self.get_num()?;
+            self.expect(TokenType::SquareClose)?;
             if start == end {
                 // TODO make error
-                unreachable!();
+                todo!();
             }
 
             for i in start..(end + 1) {
                 result.push(i);
             }
         } else {
-            let first = self.get_num();
+            let first = self.get_num()?;
 
             result.push(first);
             while self.current() == TokenType::Comma {
-                self.expect(TokenType::Comma);
-                result.push(self.get_num());
+                self.expect(TokenType::Comma)?;
+                let num = self.get_num()?;
+                result.push(num);
             }
         }
-        result
+        Ok(result)
     }
 
-    fn pars_table(&mut self) -> Vec<bool> {
-        let mut result = Vec::<bool>::new();
+    fn pars_table(&mut self) -> Result<Vec<bool>, ParsingError> {
+        let mut result = Vec::new();
 
         match self.current() {
-            TokenType::BoolTable { table: _ } => (),
+            TokenType::BoolTable(_) => (),
             _ => {
-                self.expect(TokenType::BoolTable { table: Vec::new() });
-                unreachable!();
+                self.expect(TokenType::BoolTable(Vec::new()))?;
             }
         };
 
         while let Some(table) = match self.current() {
-            TokenType::BoolTable { table } => Some(table),
+            TokenType::BoolTable(table) => Some(table),
             _ => None,
         } {
             table.iter().for_each(|v| result.push(v.clone()));
-            self.expect(TokenType::BoolTable { table: Vec::new() });
+            self.expect(TokenType::BoolTable(Vec::new()))?;
         }
 
-        result
+        Ok(result)
     }
 
-    fn atomize_pin(&mut self) {
+    fn atomize_pin(&mut self) -> Result<(), ParsingError> {
         let begin_token = self.index;
 
-        self.expect(TokenType::Pin);
+        self.expect(TokenType::Pin)?;
 
         let pins;
         let names;
         if NUM_FIRST {
-            pins = self.parse_num();
-            self.expect(TokenType::Equals);
+            pins = self.parse_num()?;
+            self.expect(TokenType::Equals)?;
 
-            names = self.parse_identifiers();
+            names = self.parse_identifiers()?;
         } else {
-            names = self.parse_identifiers();
-            self.expect(TokenType::Equals);
-            pins = self.parse_num();
+            names = self.parse_identifiers()?;
+            self.expect(TokenType::Equals)?;
+            pins = self.parse_num()?;
         }
 
-        self.expect(TokenType::Semicolon);
+        self.expect(TokenType::Semicolon)?;
 
         let len_token = self.index - begin_token;
         let tokens = &self.tokens;
@@ -248,38 +246,40 @@ impl Atomizer {
 
         self.atoms
             .push(Atom::new(tokens, begin_token, len_token, atom_type));
+
+        Ok(())
     }
 
-    fn atomize_table(&mut self) {
+    fn atomize_table(&mut self) -> Result<(), ParsingError> {
         let begin_token = self.index;
 
-        self.expect(TokenType::Table);
-        self.expect(TokenType::RoundOpen);
-        let in_names = self.parse_identifiers();
-        self.expect(TokenType::Arrow);
-        let out_names = self.parse_identifiers();
-        self.expect(TokenType::RoundClose);
+        self.expect(TokenType::Table)?;
+        self.expect(TokenType::RoundOpen)?;
+        let in_names = self.parse_identifiers()?;
+        self.expect(TokenType::Arrow)?;
+        let out_names = self.parse_identifiers()?;
+        self.expect(TokenType::RoundClose)?;
 
         let table_type;
         if self.current() == TokenType::Dot {
-            self.expect(TokenType::Dot);
+            self.expect(TokenType::Dot)?;
 
             table_type = match self.current() {
                 TokenType::Count => {
-                    self.expect(TokenType::Count);
+                    self.expect(TokenType::Count)?;
                     TableType::Count
                 }
                 TokenType::Fill => {
-                    self.expect(TokenType::Fill);
-                    self.expect(TokenType::RoundOpen);
-                    let value = self.parse_bool();
+                    self.expect(TokenType::Fill)?;
+                    self.expect(TokenType::RoundOpen)?;
+                    let value = self.parse_bool()?;
                     self.next();
-                    self.expect(TokenType::RoundClose);
+                    self.expect(TokenType::RoundClose)?;
 
-                    TableType::Fill { value }
+                    TableType::Fill(value)
                 }
                 _ => {
-                    self.expect_multible(vec![TokenType::Count, TokenType::Fill]);
+                    self.expect_multible(vec![TokenType::Count, TokenType::Fill])?;
                     unreachable!();
                 }
             };
@@ -287,9 +287,9 @@ impl Atomizer {
             table_type = TableType::Full;
         }
 
-        self.expect(TokenType::CurlyOpen);
-        let table = self.pars_table();
-        self.expect(TokenType::CurlyClose);
+        self.expect(TokenType::CurlyOpen)?;
+        let table = self.pars_table()?;
+        self.expect(TokenType::CurlyClose)?;
 
         let len_token = self.index - begin_token;
         let tokens = &self.tokens;
@@ -302,18 +302,20 @@ impl Atomizer {
 
         self.atoms
             .push(Atom::new(tokens, begin_token, len_token, atom_type));
+
+        Ok(())
     }
 
-    fn atomize_identifiers(&mut self) {
+    fn atomize_identifiers(&mut self) -> Result<(), ParsingError> {
         let begin_token = self.index;
-        let names = self.parse_identifiers();
+        let names = self.parse_identifiers()?;
 
         // parse dff
         if self.current() == TokenType::Dot {
-            self.expect(TokenType::Dot);
-            self.expect(TokenType::Dff);
+            self.expect(TokenType::Dot)?;
+            self.expect(TokenType::Dff)?;
 
-            self.expect(TokenType::Semicolon);
+            self.expect(TokenType::Semicolon)?;
             let len_token = self.index - begin_token;
             let tokens = &self.tokens;
 
@@ -326,10 +328,10 @@ impl Atomizer {
         } else {
             // parse bool function
 
-            self.expect(TokenType::Equals);
-            let func = self.parse_func();
+            self.expect(TokenType::Equals)?;
+            let func = self.parse_func()?;
 
-            self.expect(TokenType::Semicolon);
+            self.expect(TokenType::Semicolon)?;
             let len_token = self.index - begin_token;
             let tokens = &self.tokens;
 
@@ -343,10 +345,12 @@ impl Atomizer {
                 },
             ));
         }
+
+        Ok(())
     }
 
-    fn parse_func(&mut self) -> Vec<bool_func_parser::Token> {
-        let mut result = Vec::<bool_func_parser::Token>::new();
+    fn parse_func(&mut self) -> Result<Vec<bool_func_parser::Token>, ParsingError> {
+        let mut result = Vec::new();
 
         // increments on '(' and decrements on ')' should never be -1. Exampel: (a) & b ) is invalid
         let mut count_parentheses = 0;
@@ -389,8 +393,8 @@ impl Atomizer {
                     }
                     count_parentheses -= 1;
                 }
-                TokenType::Identifier { name } => {
-                    result.push(bool_func_parser::Token::Var { name });
+                TokenType::Identifier(name) => {
+                    result.push(bool_func_parser::Token::Var(name));
                     if last_identifier {
                         // TODO make error
                         unreachable!();
@@ -399,8 +403,8 @@ impl Atomizer {
                     count_identifier += 1;
                 }
 
-                TokenType::BoolTable { table: _ } => {
-                    if self.parse_bool() {
+                TokenType::BoolTable(_) => {
+                    if self.parse_bool()? {
                         result.push(bool_func_parser::Token::One)
                     } else {
                         result.push(bool_func_parser::Token::Zero)
@@ -418,12 +422,9 @@ impl Atomizer {
                         TokenType::Xor,
                         TokenType::And,
                         TokenType::Not,
-                        TokenType::Identifier {
-                            name: String::new(),
-                        },
-                        TokenType::BoolTable { table: Vec::new() },
-                    ]);
-                    unreachable!();
+                        TokenType::Identifier(String::new()),
+                        TokenType::BoolTable(Vec::new()),
+                    ])?;
                 }
             }
             self.next();
@@ -437,7 +438,7 @@ impl Atomizer {
             // TODO make error
             unreachable!();
         }
-        result
+        Ok(result)
     }
 }
 
@@ -453,52 +454,36 @@ mod tests {
         let data = vec!["(a|b&d|(c^!1));".to_string()];
         let tokens = Token::vec(vec![vec![
             TokenType::RoundOpen,
-            TokenType::Identifier {
-                name: "a".to_string(),
-            },
+            TokenType::Identifier("a".to_string()),
             TokenType::Or,
-            TokenType::Identifier {
-                name: "b".to_string(),
-            },
+            TokenType::Identifier("b".to_string()),
             TokenType::And,
-            TokenType::Identifier {
-                name: "d".to_string(),
-            },
+            TokenType::Identifier("d".to_string()),
             TokenType::Or,
             TokenType::RoundOpen,
-            TokenType::Identifier {
-                name: "c".to_string(),
-            },
+            TokenType::Identifier("c".to_string()),
             TokenType::Xor,
             TokenType::Not,
-            TokenType::BoolTable { table: vec![true] },
+            TokenType::BoolTable(vec![true]),
             TokenType::RoundClose,
             TokenType::RoundClose,
             TokenType::Semicolon,
         ]]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
-        let input = atomizer.parse_func();
+        let input = atomizer.parse_func().unwrap();
         // (a|b&d|(c^!1))
         let output: Vec<bool_func_parser::Token> = vec![
             bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var {
-                name: "a".to_string(),
-            },
+            bool_func_parser::Token::Var("a".to_string()),
             bool_func_parser::Token::Or,
-            bool_func_parser::Token::Var {
-                name: "b".to_string(),
-            },
+            bool_func_parser::Token::Var("b".to_string()),
             bool_func_parser::Token::And,
-            bool_func_parser::Token::Var {
-                name: "d".to_string(),
-            },
+            bool_func_parser::Token::Var("d".to_string()),
             bool_func_parser::Token::Or,
             bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var {
-                name: "c".to_string(),
-            },
+            bool_func_parser::Token::Var("c".to_string()),
             bool_func_parser::Token::Xor,
             bool_func_parser::Token::Not,
             bool_func_parser::Token::One,
@@ -518,36 +503,28 @@ mod tests {
         let data = vec!["a = b & c;\n".to_string(), "a.dff;\n".to_string()];
         let tokens = Token::vec(vec![
             vec![
-                TokenType::Identifier {
-                    name: "a".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Identifier("a".to_string()),
+                TokenType::Ignore(None),
                 TokenType::Equals,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "b".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::Identifier("b".to_string()),
+                TokenType::Ignore(None),
                 TokenType::And,
-                TokenType::Identifier {
-                    name: "c".to_string(),
-                },
+                TokenType::Identifier("c".to_string()),
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Identifier {
-                    name: "a".to_string(),
-                },
+                TokenType::Identifier("a".to_string()),
                 TokenType::Dot,
                 TokenType::Dff,
                 TokenType::Semicolon,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
         ]);
-        let mut atomizer = Atomizer::new(data, tokens.clone());
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
-        let input = atomizer.atomize();
+        let input = atomizer.atomize().unwrap();
         let output = vec![
             Atom::new(
                 &tokens,
@@ -556,13 +533,9 @@ mod tests {
                 AtomType::BoolFunc {
                     in_names: vec!["a".to_string()],
                     func: vec![
-                        bool_func_parser::Token::Var {
-                            name: "b".to_string(),
-                        },
+                        bool_func_parser::Token::Var("b".to_string()),
                         bool_func_parser::Token::And,
-                        bool_func_parser::Token::Var {
-                            name: "c".to_string(),
-                        },
+                        bool_func_parser::Token::Var("c".to_string()),
                     ],
                 },
             ),
@@ -588,41 +561,35 @@ mod tests {
         let data = vec!["a, b, c".to_string(), "pin[0..3]".to_string()];
         let tokens = Token::vec(vec![
             vec![
-                TokenType::Identifier {
-                    name: "a".to_string(),
-                },
+                TokenType::Identifier("a".to_string()),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "b".to_string(),
-                },
+                TokenType::Ignore(None),
+                TokenType::Identifier("b".to_string()),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "c".to_string(),
-                },
+                TokenType::Ignore(None),
+                TokenType::Identifier("c".to_string()),
             ],
             vec![
                 TokenType::Pin,
                 TokenType::SquareOpen,
-                TokenType::BoolTable { table: vec![false] },
+                TokenType::BoolTable(vec![false]),
                 TokenType::Dot,
                 TokenType::Dot,
-                TokenType::Number { value: 3 },
+                TokenType::Number(3),
                 TokenType::SquareClose,
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
-        let mut input = atomizer.parse_identifiers();
+        let mut input = atomizer.parse_identifiers().unwrap();
         let mut output = vec!["a", "b", "c"];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
             assert_eq!(input[i], output[i]);
         }
 
-        input = atomizer.parse_identifiers();
+        input = atomizer.parse_identifiers().unwrap();
         output = vec!["pin0", "pin1", "pin2", "pin3"];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
@@ -636,32 +603,30 @@ mod tests {
         let data = vec!["1, 2, 3, 10".to_string(), "[0..3]".to_string()];
         let tokens = Token::vec(vec![
             vec![
-                TokenType::BoolTable { table: vec![true] },
+                TokenType::BoolTable(vec![true]),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 2 },
+                TokenType::Ignore(None),
+                TokenType::Number(2),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::Number { value: 3 },
+                TokenType::Ignore(None),
+                TokenType::Number(3),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, false],
-                },
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, false]),
             ],
             vec![
                 TokenType::SquareOpen,
-                TokenType::BoolTable { table: vec![false] },
+                TokenType::BoolTable(vec![false]),
                 TokenType::Dot,
                 TokenType::Dot,
-                TokenType::Number { value: 3 },
+                TokenType::Number(3),
                 TokenType::SquareClose,
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens);
+        let mut atomizer = Atomizer::new(&data, &tokens);
 
-        let mut input = atomizer.parse_num();
+        let mut input = atomizer.parse_num().unwrap();
         let mut output = vec![1, 2, 3, 10];
 
         assert_eq!(input.len(), output.len());
@@ -669,7 +634,7 @@ mod tests {
             assert_eq!(input[i], output[i]);
         }
 
-        input = atomizer.parse_num();
+        input = atomizer.parse_num().unwrap();
         output = vec![0, 1, 2, 3];
         assert_eq!(input.len(), output.len());
         for i in 0..input.len() {
@@ -682,20 +647,18 @@ mod tests {
         let data = vec!["pin 3 = a;\n".to_string()];
         let tokens = Token::vec(vec![vec![
             TokenType::Pin,
-            TokenType::Ignore { comment: None },
-            TokenType::Number { value: 3 },
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
+            TokenType::Number(3),
+            TokenType::Ignore(None),
             TokenType::Equals,
-            TokenType::Ignore { comment: None },
-            TokenType::Identifier {
-                name: "a".to_string(),
-            },
+            TokenType::Ignore(None),
+            TokenType::Identifier("a".to_string()),
             TokenType::Semicolon,
-            TokenType::Ignore { comment: None },
+            TokenType::Ignore(None),
         ]]);
 
-        let mut atomizer = Atomizer::new(data, tokens.clone());
-        let input = atomizer.atomize();
+        let mut atomizer = Atomizer::new(&data, &tokens);
+        let input = atomizer.atomize().unwrap();
         assert_eq!(input.len(), 1);
         assert_eq!(
             input[0],
@@ -728,70 +691,56 @@ mod tests {
             vec![
                 TokenType::Table,
                 TokenType::RoundOpen,
-                TokenType::Identifier {
-                    name: "i0".to_string(),
-                },
+                TokenType::Identifier("i0".to_string()),
                 TokenType::Comma,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "i1".to_string(),
-                },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::Identifier("i1".to_string()),
+                TokenType::Ignore(None),
                 TokenType::Arrow,
-                TokenType::Ignore { comment: None },
-                TokenType::Identifier {
-                    name: "and".to_string(),
-                },
+                TokenType::Ignore(None),
+                TokenType::Identifier("and".to_string()),
                 TokenType::RoundClose,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::CurlyOpen,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![false, false],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![false] },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false, false]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![false, true],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![false] },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false, true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, false],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![false] },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, false]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![false]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable {
-                    table: vec![true, true],
-                },
-                TokenType::Ignore { comment: None },
-                TokenType::BoolTable { table: vec![true] },
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true, true]),
+                TokenType::Ignore(None),
+                TokenType::BoolTable(vec![true]),
+                TokenType::Ignore(None),
             ],
             vec![
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
                 TokenType::CurlyClose,
-                TokenType::Ignore { comment: None },
+                TokenType::Ignore(None),
             ],
         ]);
 
-        let mut atomizer = Atomizer::new(data, tokens.clone());
-        let input = atomizer.atomize();
+        let mut atomizer = Atomizer::new(&data, &tokens);
+        let input = atomizer.atomize().unwrap();
         assert_eq!(input.len(), 1);
         assert_eq!(
             input[0],
