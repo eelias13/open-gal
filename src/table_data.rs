@@ -6,7 +6,7 @@ use crate::CircuitConfig;
 /// - "output_pin" stores the output pin
 /// - "table" contains the truth table for the expression and is used to generate a dnf expression later on
 /// - "enable_flip_flop" holds a boolean which decides if the output pin should have its flip flop turned on.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct TableData {
     pub input_pins: Vec<u32>,
     pub output_pin: u32,
@@ -37,7 +37,7 @@ impl TableData {
         }
         for pin in self.input_pins.clone() {
             if !config.inputs.contains(&pin) {
-                return Err(format!("input pin {} is not deficient in config", pin));
+                return Err(format!("input pin {} is not defined in config", pin));
             }
         }
 
@@ -56,7 +56,7 @@ impl TableData {
 
         if !output1.contains(&self.output_pin) && !output2.contains(&self.output_pin) {
             return Err(format!(
-                "input pin {} is not deficient in config",
+                "output pin {} is not defined in config",
                 self.output_pin
             ));
         }

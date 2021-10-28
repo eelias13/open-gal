@@ -19,18 +19,26 @@ const ASCII_CTRL_ETX: char = '\x03';
 //	Output blocksize for fuselist.
 const FUSE_BLOCKSIZE: u32 = 32;
 
-pub fn jedec(num_pins: u32, num_fuses: u32, fuse_states: Vec<bool>) -> String {
+pub fn jedec(
+    num_pins: u32,
+    num_fuses: u32,
+    fuse_states: Vec<bool>,
+    head: Option<String>,
+) -> String {
     let mut result = String::new();
 
+    let head = match head {
+        Some(val) => val,
+        None => format!("Created by {}\n", OPENGAL_VERSION),
+    };
     //	Comment section start.
-    result.push_str(&format!(
-        "{}\nCreated by {}\n",
-        ASCII_CTRL_STX, OPENGAL_VERSION
-    ));
+    result.push(ASCII_CTRL_STX);
+    result.push('\n');
+    result.push_str(&head);
 
     //	Comment section end.
     result.push_str(&format!(
-        "{}{}{}{}\n*{}{}{}\n*G0\n*F0",
+        "{}{}{}{}\n*{}{}{}\n*G0\n*F",
         ID_TERMINATOR, ID_VALUE, ID_PIN, num_pins, ID_VALUE, ID_DEFAULT_FUSESTATE_FIELD, num_fuses
     ));
 
@@ -45,7 +53,7 @@ pub fn jedec(num_pins: u32, num_fuses: u32, fuse_states: Vec<bool>) -> String {
             result.push_str(&format!("\n*L"));
             result.push_str(&fill_num(5, &format!("{}", index)));
             result.push(' ');
-        } else if modulus != 0 {
+        } else {
             result.push(if fuse_states[index as usize] {
                 '1'
             } else {
@@ -115,13 +123,13 @@ fn fill_num(len: usize, num: &str) -> String {
 /// JEDEC::BlockContainsData checks if a block of fuses contains data which needs to be written,
 /// it returns true if it finds a '1' in a block of fuses. The startindex parameter is used as
 /// a block starting point in the fuse state list.
-fn block_contains_data(start_index: u32, fuse_states: &Vec<bool>) -> bool {
-    if start_index + FUSE_BLOCKSIZE > fuse_states.len() as u32 {
+fn block_contains_data(index: u32, fuse_states: &Vec<bool>) -> bool {
+    if index + FUSE_BLOCKSIZE > fuse_states.len() as u32 {
         return false;
     }
 
-    for index in start_index..(start_index + FUSE_BLOCKSIZE) {
-        if fuse_states[index as usize] {
+    for i in index..(index + FUSE_BLOCKSIZE) {
+        if fuse_states[i as usize] {
             return true;
         }
     }

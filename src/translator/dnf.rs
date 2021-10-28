@@ -88,28 +88,6 @@ fn uint_to_bool_vec(num: u32) -> Vec<bool> {
 
 #[cfg(test)]
 mod tests {
-    use lazy_static::lazy_static;
-
-    lazy_static! {
-        static ref CONFIG: super::CircuitConfig = super::CircuitConfig::new(
-            5892,
-            24,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,],
-            vec![
-                (14, 8),
-                (15, 10),
-                (16, 12),
-                (17, 14),
-                (18, 16),
-                (19, 16),
-                (20, 14),
-                (21, 12),
-                (22, 10),
-                (23, 8),
-            ],
-            vec![(13, 42)],
-        );
-    }
 
     #[test]
     fn bit_convesion() {
@@ -151,6 +129,27 @@ mod tests {
 
     #[test]
     fn expression_new() {
+        let config = super::CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+
         let table_data = vec![
             super::TableData::new(
                 vec![3, 2],
@@ -226,7 +225,7 @@ mod tests {
 
         for i in 0..table_data.len() {
             assert_eq!(
-                super::Expression::new(&table_data[i], &CONFIG),
+                super::Expression::new(&table_data[i], &config),
                 Ok(expressions[i].clone())
             );
         }

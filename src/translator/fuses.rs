@@ -242,13 +242,22 @@ mod tests {
     use crate::translator::dnf::Pin;
     use crate::translator::dnf::Row;
     use crate::translator::utils::bool_to_byte;
-    use lazy_static::lazy_static;
 
-    lazy_static! {
-        static ref CONFIG: super::CircuitConfig = super::CircuitConfig::new(
+
+    #[test]
+    fn fuses_as_bytes_test() {
+        let fuses = vec![true; 9];
+        assert_eq!(fuses_as_bytes(fuses), vec![255, 128])
+    }
+
+    #[test]
+    fn maximum_terms() {
+        let config = super::CircuitConfig::new(
             5892,
             24,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,],
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
             vec![
                 (14, 8),
                 (15, 10),
@@ -263,22 +272,32 @@ mod tests {
             ],
             vec![(13, 42)],
         );
-    }
-
-    #[test]
-    fn fuses_as_bytes_test() {
-        let fuses = vec![true; 9];
-        assert_eq!(fuses_as_bytes(fuses), vec![255, 128])
-    }
-
-    #[test]
-    fn maximum_terms() {
-        assert_eq!(super::maximum_terms(23, &CONFIG), Ok(8));
+        assert_eq!(super::maximum_terms(23, &config), Ok(8));
     }
 
     #[test]
     fn get_row_length() {
-        assert_eq!(super::get_row_length(&CONFIG), 44);
+        let config = super::CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+        assert_eq!(super::get_row_length(&config), 44);
     }
 
     #[test]
@@ -291,11 +310,32 @@ mod tests {
             }],
         };
 
-        let row_length = super::get_row_length(&CONFIG);
-        let num_rows = super::maximum_terms(expression.out_pin, &CONFIG).unwrap();
+        let config = super::CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
+
+        let row_length = super::get_row_length(&config);
+        let num_rows = super::maximum_terms(expression.out_pin, &config).unwrap();
 
         let result =
-            super::build_from_expression(&expression, num_rows + 1, row_length, &CONFIG).unwrap();
+            super::build_from_expression(&expression, num_rows + 1, row_length, &config).unwrap();
 
         assert_eq!(result.len(), 396);
         let bytes = fuses_as_bytes(result);
@@ -313,6 +353,27 @@ mod tests {
     #[test]
     fn expressions() {
         use super::Expression;
+
+        let config = super::CircuitConfig::new(
+            5892,
+            24,
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            ],
+            vec![
+                (14, 8),
+                (15, 10),
+                (16, 12),
+                (17, 14),
+                (18, 16),
+                (19, 16),
+                (20, 14),
+                (21, 12),
+                (22, 10),
+                (23, 8),
+            ],
+            vec![(13, 42)],
+        );
 
         let expressions = vec![
             Expression {
@@ -385,7 +446,7 @@ mod tests {
             },
         ];
 
-        let result = super::build(&expressions, &CONFIG).unwrap();
+        let result = super::build(&expressions, &config).unwrap();
 
         assert_eq!(result.len(), 5892);
         let bytes = fuses_as_bytes(result);
