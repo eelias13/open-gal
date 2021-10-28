@@ -7,5 +7,4 @@ edition = "2018"
 [dependencies]
 bool-func-parser = { git = "https://github.com/eeli1/bool-func-parser", version = "0.1.0" }
 
-[dev-dependencies]
-lazy_static = "1.4.0"
+
