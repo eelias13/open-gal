@@ -1,8 +1,10 @@
+use crate::constants::COUNT_VERTICAL;
 use crate::parser::atom::{AtomType, TableType};
 use crate::parser::atomizer::Atomizer;
 use crate::parser::error::ParsingError;
 use crate::parser::lexer::Lexer;
 use crate::table_data::TableData;
+use bool_algebra::{parse_count, parse_fill, parse_full};
 use std::{collections::HashMap, u32};
 
 pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, ParsingError> {
@@ -86,7 +88,7 @@ pub fn parse(data: Vec<&str>) -> Result<Vec<TableData>, ParsingError> {
 
 fn parse_func(
     in_names: Vec<String>,
-    func: Vec<bool_func_parser::Token>,
+    func: Vec<bool_algebra::Token>,
     pin_map: &mut HashMap<String, u32>,
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<TableData>, String> {
@@ -97,8 +99,8 @@ fn parse_func(
     };
 
     for output_pin in output_pins {
-        if let Ok(table) = bool_func_parser::parse(&func) {
-            let in_names = bool_func_parser::get_names(&func);
+        if let Ok(table) = bool_algebra::parse(&func) {
+            let in_names = bool_algebra::get_names(&func);
             let input_pins = match get_pins(&in_names, pin_map, used_pin) {
                 Ok(pins) => pins,
                 Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),
@@ -126,15 +128,14 @@ fn parse_table(
     used_pin: &mut Vec<u32>,
 ) -> Result<Vec<TableData>, String> {
     let mut result = Vec::new();
-    let table_2d = match crate::parser::table_parser::parse(
-        in_names.len(),
-        out_names.len(),
-        table,
-        table_type,
-    ) {
-        Ok(t) => t,
-        Err(msg) => return Err(msg),
+    let in_len = in_names.len();
+    let out_len = out_names.len();
+    let table_2d = match table_type {
+        TableType::Count => parse_count(in_len, out_len, table, COUNT_VERTICAL)?,
+        TableType::Fill(value) => parse_fill(in_len, out_len, table, value)?,
+        TableType::Full => parse_full(in_len, out_len, table)?,
     };
+    
     let output_pins = match get_pins(&out_names, pin_map, used_pin) {
         Ok(pins) => pins,
         Err(pin_name) => return Err(format!("pin <{}> is not definde", pin_name)),

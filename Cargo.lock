@@ -3,13 +3,13 @@
 version = 3
 
 [[package]]
-name = "bool-func-parser"
+name = "bool-algebra"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/bool-func-parser#b7419f33c3c3ca93c82053eb6c3b49525b1886a7"
+source = "git+https://github.com/eeli1/bool-algebra#7248cfd8c97d1b0a6df53aedc985ad489a3a3a0a"
 
 [[package]]
 name = "open-gal"
 version = "0.1.0"
 dependencies = [
- "bool-func-parser",
+ "bool-algebra",
 ]

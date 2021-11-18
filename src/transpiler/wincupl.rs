@@ -1,5 +1,5 @@
 use crate::TableData;
-use bool_func_parser::update_values;
+use bool_algebra::update_values;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;

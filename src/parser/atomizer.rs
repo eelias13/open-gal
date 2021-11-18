@@ -349,7 +349,7 @@ impl<'a> Atomizer<'a> {
         Ok(())
     }
 
-    fn parse_func(&mut self) -> Result<Vec<bool_func_parser::Token>, ParsingError> {
+    fn parse_func(&mut self) -> Result<Vec<bool_algebra::Token>, ParsingError> {
         let mut result = Vec::new();
 
         // increments on '(' and decrements on ')' should never be -1. Exampel: (a) & b ) is invalid
@@ -364,29 +364,29 @@ impl<'a> Atomizer<'a> {
         while self.current() != TokenType::Semicolon {
             match self.current() {
                 TokenType::Or => {
-                    result.push(bool_func_parser::Token::Or);
+                    result.push(bool_algebra::Token::Or);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::Xor => {
-                    result.push(bool_func_parser::Token::Xor);
+                    result.push(bool_algebra::Token::Xor);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::And => {
-                    result.push(bool_func_parser::Token::And);
+                    result.push(bool_algebra::Token::And);
                     count_binary += 1;
                     last_identifier = false;
                 }
                 TokenType::Not => {
-                    result.push(bool_func_parser::Token::Not);
+                    result.push(bool_algebra::Token::Not);
                 }
                 TokenType::RoundOpen => {
-                    result.push(bool_func_parser::Token::Open);
+                    result.push(bool_algebra::Token::Open);
                     count_parentheses += 1;
                 }
                 TokenType::RoundClose => {
-                    result.push(bool_func_parser::Token::Close);
+                    result.push(bool_algebra::Token::Close);
                     if count_parentheses == 0 {
                         // TODO make error
                         unreachable!();
@@ -394,7 +394,7 @@ impl<'a> Atomizer<'a> {
                     count_parentheses -= 1;
                 }
                 TokenType::Identifier(name) => {
-                    result.push(bool_func_parser::Token::Var(name));
+                    result.push(bool_algebra::Token::Var(name));
                     if last_identifier {
                         // TODO make error
                         unreachable!();
@@ -405,9 +405,9 @@ impl<'a> Atomizer<'a> {
 
                 TokenType::BoolTable(_) => {
                     if self.parse_bool()? {
-                        result.push(bool_func_parser::Token::One)
+                        result.push(bool_algebra::Token::One)
                     } else {
-                        result.push(bool_func_parser::Token::Zero)
+                        result.push(bool_algebra::Token::Zero)
                     }
                     if last_identifier {
                         // TODO make error
@@ -474,21 +474,21 @@ mod tests {
 
         let input = atomizer.parse_func().unwrap();
         // (a|b&d|(c^!1))
-        let output: Vec<bool_func_parser::Token> = vec![
-            bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var("a".to_string()),
-            bool_func_parser::Token::Or,
-            bool_func_parser::Token::Var("b".to_string()),
-            bool_func_parser::Token::And,
-            bool_func_parser::Token::Var("d".to_string()),
-            bool_func_parser::Token::Or,
-            bool_func_parser::Token::Open,
-            bool_func_parser::Token::Var("c".to_string()),
-            bool_func_parser::Token::Xor,
-            bool_func_parser::Token::Not,
-            bool_func_parser::Token::One,
-            bool_func_parser::Token::Close,
-            bool_func_parser::Token::Close,
+        let output: Vec<bool_algebra::Token> = vec![
+            bool_algebra::Token::Open,
+            bool_algebra::Token::Var("a".to_string()),
+            bool_algebra::Token::Or,
+            bool_algebra::Token::Var("b".to_string()),
+            bool_algebra::Token::And,
+            bool_algebra::Token::Var("d".to_string()),
+            bool_algebra::Token::Or,
+            bool_algebra::Token::Open,
+            bool_algebra::Token::Var("c".to_string()),
+            bool_algebra::Token::Xor,
+            bool_algebra::Token::Not,
+            bool_algebra::Token::One,
+            bool_algebra::Token::Close,
+            bool_algebra::Token::Close,
         ];
 
         assert_eq!(input.len(), output.len());
@@ -533,9 +533,9 @@ mod tests {
                 AtomType::BoolFunc {
                     in_names: vec!["a".to_string()],
                     func: vec![
-                        bool_func_parser::Token::Var("b".to_string()),
-                        bool_func_parser::Token::And,
-                        bool_func_parser::Token::Var("c".to_string()),
+                        bool_algebra::Token::Var("b".to_string()),
+                        bool_algebra::Token::And,
+                        bool_algebra::Token::Var("c".to_string()),
                     ],
                 },
             ),

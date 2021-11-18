@@ -14,7 +14,7 @@ pub enum AtomType {
     },
     BoolFunc {
         in_names: Vec<String>,
-        func: Vec<bool_func_parser::Token>,
+        func: Vec<bool_algebra::Token>,
     },
     Dff {
         names: Vec<String>,
