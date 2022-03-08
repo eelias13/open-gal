@@ -1,6 +1,5 @@
-pub mod atom;
-pub mod atomizer;
-pub mod core;
-pub mod error;
-pub mod lexer;
-pub mod token;
+mod lexer;
+pub use lexer::parse;
+pub use lexer::Token;
+
+mod test;
