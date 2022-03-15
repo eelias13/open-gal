@@ -180,40 +180,39 @@ use open_gal::*;
 #[ignore]
 #[test]
 fn comlpex() {
-    let code = vec![
-        "pin 13 = i0;",
-        "pin 11 = i1;",
-        "pin 17 = and;",
-        "pin 18 = or;",
-        "pin 19 = xor;",
-        "",
-        "table(i0, i1 -> and) {",
-        "    00 0",
-        "    01 0",
-        "    10 0",
-        "    11 1",
-        "}",
-        "",
-        "table(i0, i1 -> xor ).count {",
-        "    0",
-        "    1",
-        "    1",
-        "    0",
-        "}",
-        "",
-        "table(i0, i1 -> or).fill(1) {",
-        "    00 0",
-        "    01 1",
-        "    10 1",
-        "}",
-        "",
-        "pin 23 = a;",
-        "pin 3 = b;",
-        "pin 2 = c;",
-        "",
-        "a = (!b | (c));",
-        "a.dff;",
-    ];
+    let code = r"                                     
+    pin 13 = i0;
+    pin 11 = i1;
+    pin 17 = and;
+    pin 18 = or;
+    pin 19 = xor;
+    
+    table(i0, i1 -> and) {
+        00 0
+        01 0
+        10 0
+        11 1
+    }
+    
+    table(i0, i1 -> xor ).count {
+        0
+        1
+        1
+        0
+    }
+    
+    table(i0, i1 -> or).fill(1) {
+        00 0
+        01 1
+        10 1
+    }
+    
+    pin 23 = a;
+    pin 3 = b;
+    pin 2 = c;
+    
+    a = (!b | (c));
+    a.dff;";
 
     let table_data = parse(code).unwrap();
 

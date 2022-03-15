@@ -5,4 +5,7 @@ authors = ["eeli1 <maierelias13@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+logos = "0.12.0"
 bool-algebra = { git = "https://github.com/eeli1/bool-algebra", version = "0.1.0" }
+tokenizer = { git = "https://github.com/eeli1/tokenizer", version = "0.1.0" }
+hardware-sim = { git = "https://github.com/eeli1/hardware-sim", version = "0.1.0" }
