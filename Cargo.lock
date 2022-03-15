@@ -22,7 +22,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "hardware-sim"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/hardware-sim#105377c0d1f96c8b254917aa8dfcefed2f151198"
+source = "git+https://github.com/eeli1/hardware-sim#91038f2d10b6385037a5f2b108201b02e8ac22a7"
 dependencies = [
  "bool-algebra",
 ]
@@ -87,9 +87,9 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
 name = "syn"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a65b3f4ffa0092e9887669db0eae07941f023991ab58ea44da8fe8e2d511c6b"
+checksum = "1e59d925cf59d8151f25a3bedf97c9c157597c9df7324d32d68991cc399ed08b"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,8 +1,11 @@
 use super::Token;
+use crate::TableData;
 
+use hardware_sim::LookupTable;
 use logos::Logos;
 use tokenizer::Tokenizer;
 
+#[allow(dead_code)]
 fn cmp_token(code: &str, output: Vec<Token>) {
     let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
     let mut input = Vec::<Token>::new();
@@ -14,6 +17,48 @@ fn cmp_token(code: &str, output: Vec<Token>) {
         assert_eq!(input[i], output[i], "at token <{}>", i);
     }
 }
+
+#[test]
+fn ogal2td() {
+    let o_gal = super::OGal::new(
+        vec![
+            ("i0", 1),
+            ("i1", 2),
+            ("and", 20),
+            ("or", 21),
+            ("xor", 22),
+            ("not", 11),
+        ],
+        vec![
+            LookupTable::new(
+                vec![
+                    vec![false, false, false, true],
+                    vec![false, true, true, true],
+                    vec![false, true, true, false],
+                ],
+                vec!["i0", "i1"],
+                vec!["and", "or", "xor"],
+                "",
+            )
+            .unwrap(),
+            LookupTable::new(vec![vec![false, true]], vec!["i1"], vec!["not"], "").unwrap(),
+        ],
+        vec!["and", "not"],
+    );
+
+    assert_eq!(
+        super::ogal2td(o_gal),
+        Ok(vec![
+            TableData::new(vec![1, 2], 20, vec![false, false, false, true], true),
+            TableData::new(vec![1, 2], 21, vec![false, true, true, true], false),
+            TableData::new(vec![1, 2], 22, vec![false, true, true, false], false),
+            TableData::new(vec![2], 11, vec![false, true], true)
+        ])
+    );
+}
+
+
+
 
 #[test]
 fn test_num() {

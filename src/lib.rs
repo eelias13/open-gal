@@ -8,6 +8,7 @@ pub use circuit_config::CircuitConfig;
 pub use table_data::TableData;
 pub use translator::core::to_jedec;
 
+pub use parser::OGal;
 pub use transpiler::wincupl::to_wincupl;
 
 pub fn parse(code: &str) -> Result<Vec<TableData>, String> {
