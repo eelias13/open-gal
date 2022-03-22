@@ -1,4 +1,5 @@
 use crate::CircuitConfig;
+use serde::{Deserialize, Serialize};
 
 /// This data structure contains following data from processed expressions.
 ///
@@ -6,7 +7,7 @@ use crate::CircuitConfig;
 /// - "output_pin" stores the output pin
 /// - "table" contains the truth table for the expression and is used to generate a dnf expression later on
 /// - "enable_flip_flop" holds a boolean which decides if the output pin should have its flip flop turned on.
-#[derive(PartialEq, Debug, Clone, Hash)]
+#[derive(PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct TableData {
     pub input_pins: Vec<u32>,
     pub output_pin: u32,
