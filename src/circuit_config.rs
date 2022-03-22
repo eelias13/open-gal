@@ -1,4 +1,6 @@
-#[derive(PartialEq, Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct CircuitConfig {
     pub num_fuses: u32,
     pub num_pins: u32,
