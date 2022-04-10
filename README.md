@@ -8,9 +8,9 @@ open gal is a compiler that compiles the open gal source code into a jedec file 
 [click here](https://github.com/eeli1/open-gal/wiki)
 
 ## web editor
-[click here](https://eeli1.github.io/open-gal/editor)
+[click here](https://eeli1.github.io/tool/open-gal/editor)
 
 ## downlad the cli tool 
-[click here](https://eeli1.github.io/open-gal/cli)
+[click here](https://eeli1.github.io/tool/open-gal/cli)
 
 ## how open gal works internaly
