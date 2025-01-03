@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Open Gal Editor</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+      crossorigin="anonymous"
+    />
+
+    <script src="vs/loader.js"></script>
+    <script src="rust.js"></script>
+    <script src="script.js"></script>
+  </head>
+  <body onload="main()">
+    <div
+      id="container"
+      style="width: 100%; height: 900px; border: 1px solid grey"
+    ></div>
+
+    <div>
+      <label for="theme">Choose a theme:</label>
+      <select class="form-select" id="theme" name="theme">
+        <option value="vs-dark">vs-dark</option>
+        <option value="vs">vs</option>
+        <option value="hc-black">hc-black</option>
+      </select>
+
+      <button type="button" class="btn btn-outline-primary" id="downloadCode">
+        Download Code
+      </button>
+      <button type="button" class="btn btn-outline-primary" id="compile">
+        Compile
+      </button>
+      <button type="button" class="btn btn-outline-primary" id="transpile">
+        Transpile to WinCupl
+      </button>
+      <button type="button" class="btn btn-outline-primary" id="tabledata">
+        Table Data
+      </button>
+
+      <label for="galtype">Choose a gal type:</label>
+      <select class="form-select" id="galtype" name="galtype">
+        <option value="g22v10">g22v10</option>
+      </select>
+
+      <label for="error">Error:</label>
+      <p class="error" id="error"></p>
+    </div>
+  </body>
+</html>
