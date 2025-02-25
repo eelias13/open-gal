@@ -1,2 +1,2 @@
 docker = "./dockerfile_editor"
-exports = [{ path = "/build/editor/build", name = "." }]
+exports = [{ path = "/build/editor/build/*.*", name = "." }]
