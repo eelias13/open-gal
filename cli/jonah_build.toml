@@ -1,0 +1,9 @@
+docker = "./Dockerfile"
+
+exports = [
+    { path = "/build/target/x86_64-unknown-linux-musl/release/cli", name = "open-gal-linux-x86_64" },
+    { path = "/build/target/aarch64-unknown-linux-musl/release/cli", name = "open-gal-linux-aarch64" },
+    { path = "/build/target/x86_64-pc-windows-gnu/release/cli.exe", name = "open-gal-windows-x86_64.exe" },
+    { path = "/build/target/x86_64-apple-darwin/release/cli", name = "open-gal-macos-x86_64" },
+    { path = "/build/target/aarch64-apple-darwin/release/cli", name = "open-gal-macos-aarch64" },
+]

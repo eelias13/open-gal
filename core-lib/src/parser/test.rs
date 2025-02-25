@@ -1,7 +1,4 @@
 use super::Token;
-use crate::TableData;
-
-use hardware_sim::LookupTable;
 use logos::Logos;
 use tokenizer::Tokenizer;
 
@@ -20,6 +17,8 @@ fn cmp_token(code: &str, output: Vec<Token>) {
 
 #[test]
 fn ogal2td() {
+    use crate::TableData;
+    use hardware_sim::LookupTable;
     let o_gal = super::OGal::new(
         vec![
             ("i0", 1),
@@ -56,9 +55,6 @@ fn ogal2td() {
         ])
     );
 }
-
-
-
 
 #[test]
 fn test_num() {
@@ -207,22 +203,22 @@ fn test_parse_func() {
     cmp_token(code, output);
 
     // (a|b&d|(c^!1))
-    let output: Vec<bool_algebra::Token> = vec![
-        bool_algebra::Token::Open,
-        bool_algebra::Token::Var("a".to_string()),
-        bool_algebra::Token::Or,
-        bool_algebra::Token::Var("b".to_string()),
-        bool_algebra::Token::And,
-        bool_algebra::Token::Var("d".to_string()),
-        bool_algebra::Token::Or,
-        bool_algebra::Token::Open,
-        bool_algebra::Token::Var("c".to_string()),
-        bool_algebra::Token::Xor,
-        bool_algebra::Token::Not,
-        bool_algebra::Token::One,
-        bool_algebra::Token::Close,
-        bool_algebra::Token::Close,
-    ];
+    // let output: Vec<bool_algebra::Token> = vec![
+    //     bool_algebra::Token::Open,
+    //     bool_algebra::Token::Var("a".to_string()),
+    //     bool_algebra::Token::Or,
+    //     bool_algebra::Token::Var("b".to_string()),
+    //     bool_algebra::Token::And,
+    //     bool_algebra::Token::Var("d".to_string()),
+    //     bool_algebra::Token::Or,
+    //     bool_algebra::Token::Open,
+    //     bool_algebra::Token::Var("c".to_string()),
+    //     bool_algebra::Token::Xor,
+    //     bool_algebra::Token::Not,
+    //     bool_algebra::Token::One,
+    //     bool_algebra::Token::Close,
+    //     bool_algebra::Token::Close,
+    // ];
 
     // let mut atomizer = Atomizer::new(code, tokens);
     //

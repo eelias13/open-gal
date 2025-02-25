@@ -1,94 +1,68 @@
 use open_gal::{CircuitConfig, TableData};
-use serde_json::{json, Map, Value};
+use serde::{Deserialize, Serialize};
 
-pub fn read_json(path: &str) -> Value {
-    let json_str = std::fs::read_to_string(path).expect(&format!("file: {} not found", path));
-    let json: Value = serde_json::from_str(&json_str).unwrap();
-    json
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct TableDataWrapper {
+    #[serde(rename = "inputPins")]
+    pub input_pins: Vec<u32>,
+    #[serde(rename = "outputPin")]
+    pub output_pin: u32,
+    #[serde(rename = "table")]
+    pub table: Vec<bool>,
+    #[serde(rename = "dff")]
+    pub enable_flip_flop: bool,
 }
 
-pub fn td_from_json_vec(json: &Value) -> Option<Vec<TableData>> {
-    let mut table_data = Vec::new();
-    for val in json["TableData"].as_array()? {
-        table_data.push(table_data_from_json(val)?);
-    }
-
-    Some(table_data)
-}
-
-pub fn td_to_json_vec(table_data: &Vec<TableData>) -> Value {
-    let json_arr = table_data.iter().map(|td| table_data_to_json(td)).collect();
-    let mut map = Map::new();
-    map.insert("TableData".to_string(), Value::Array(json_arr));
-    Value::Object(map)
-}
-
-pub fn circuit_config_from_json(json: &Value) -> Option<CircuitConfig> {
-    let num_fuses = json["NumFuses"].as_u64()? as u32;
-    let num_pins = json["TotalNumPins"].as_u64()? as u32;
-    let mut inputs = Vec::new();
-    for val in json["InputPins"].as_array()? {
-        inputs.push(val.as_u64()? as u32);
-    }
-    let outputs = vec_u32_pair(&json["OutputPins"])?;
-    let special_pins = vec_u32_pair(&json["SpecialPins"])?;
-
-    Some(CircuitConfig {
-        num_fuses,
-        num_pins,
-        inputs,
-        outputs,
-        special_pins,
-    })
-}
-
-fn vec_u32_pair(json: &Value) -> Option<Vec<(u32, u32)>> {
-    let mut result = Vec::new();
-    for val in json.as_array()? {
-        let pair = val.as_array()?;
-        if pair.len() != 2 {
-            return None;
+impl From<TableDataWrapper> for TableData {
+    fn from(wrapper: TableDataWrapper) -> Self {
+        Self {
+            enable_flip_flop: wrapper.enable_flip_flop,
+            input_pins: wrapper.input_pins,
+            output_pin: wrapper.output_pin,
+            table: wrapper.table,
         }
-        let first = pair[0].as_u64()? as u32;
-        let second = pair[1].as_u64()? as u32;
-        result.push((first, second));
     }
-    Some(result)
 }
 
-fn table_data_to_json(table_data: &TableData) -> Value {
-    let mut map = Map::new();
-    map.insert("dff".to_string(), json!(table_data.enable_flip_flop));
-    map.insert("inputPins".to_string(), json!(table_data.input_pins));
-    map.insert("outputPin".to_string(), json!(table_data.output_pin));
-    map.insert("table".to_string(), json!(table_data.table));
-    Value::Object(map)
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct CircuitConfigWrapper {
+    // pub num_fuses: u32,
+    // pub num_pins: u32,
+    // pub inputs: Vec<u32>,
+    // pub outputs: Vec<(u32, u32)>,
+    // pub special_pins: Vec<(u32, u32)>,
+    #[serde(rename = "InputPins")]
+    pub inputs: Vec<u32>,
+
+    #[serde(rename = "NumFuses")]
+    pub num_fuses: u32,
+
+    #[serde(rename = "TotalNumPins")]
+    pub num_pins: u32,
+
+    #[serde(rename = "OutputPins")]
+    pub outputs: Vec<(u32, u32)>,
+
+    #[serde(rename = "SpecialPins")]
+    pub special_pins: Vec<(u32, u32)>,
 }
 
-fn table_data_from_json(json: &Value) -> Option<TableData> {
-    let mut input_pins = Vec::new();
-    for val in json["inputPins"].as_array()? {
-        input_pins.push(val.as_u64()? as u32);
+impl From<CircuitConfigWrapper> for CircuitConfig {
+    fn from(wrapper: CircuitConfigWrapper) -> Self {
+        Self {
+            num_fuses: wrapper.num_fuses,
+            num_pins: wrapper.num_pins,
+            inputs: wrapper.inputs,
+            outputs: wrapper.outputs,
+            special_pins: wrapper.special_pins,
+        }
     }
-    let output_pin = json["outputPin"].as_u64()? as u32;
-    let mut table = Vec::new();
-    for val in json["table"].as_array()? {
-        table.push(val.as_bool()?);
-    }
-    let enable_flip_flop = json["dff"].as_bool()?;
-
-    let table_data = TableData {
-        input_pins,
-        output_pin,
-        table,
-        enable_flip_flop,
-    };
-
-    Some(table_data)
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -99,8 +73,9 @@ mod tests {
           "outputPin": 17,
           "table": [false, false, false, true]
         });
-        let table_data = table_data_from_json(&json).unwrap();
-        assert_eq!(json, table_data_to_json(&table_data));
+
+        let table_data: TableDataWrapper = serde_json::from_str(&json.to_string()).unwrap();
+        assert_eq!(json, serde_json::to_value(&table_data).unwrap());
     }
 
     #[test]
@@ -133,13 +108,13 @@ mod tests {
             }
           ]
         });
-        let table_data = td_from_json_vec(&json).unwrap();
-        assert_eq!(json, td_to_json_vec(&table_data));
+
+        let table_data: Vec<TableDataWrapper> = serde_json::from_str(&json.to_string()).unwrap();
+        assert_eq!(json, serde_json::to_value(&table_data).unwrap());
     }
 
     #[test]
     fn load() {
-        use serde_json::json;
         let json = json!({
             "InputPins": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
             "NumFuses": 5892,
@@ -148,8 +123,14 @@ mod tests {
             "SpecialPins": [[13, 42]]
         });
 
+        let circuit_config: CircuitConfig =
+            serde_json::from_str::<CircuitConfigWrapper>(&json.to_string())
+                .unwrap()
+                .try_into()
+                .unwrap();
+
         assert_eq!(
-            circuit_config_from_json(&json).unwrap(),
+            circuit_config,
             CircuitConfig {
                 inputs: vec![
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23

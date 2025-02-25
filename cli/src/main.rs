@@ -1,217 +1,172 @@
 mod json_load;
 
-use clap::{App, AppSettings, Arg};
-use json_load::*;
+use clap::{Parser, Subcommand};
+use json_load::{CircuitConfigWrapper, TableDataWrapper};
+use open_gal::{CircuitConfig, TableData};
 use std::fs;
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
+use std::io::prelude::*;
 
-fn main() {
-    let app = App::new("open-gal")
-    .about("open-gal is a hardware description language for generic array logic chips (gal)")
-    .version("0.1.0")
-    .author("elias <maierelias13@gmail.com>")
-    .setting(AppSettings::SubcommandRequiredElseHelp)
-    .subcommand(
-        App::new("code2td")
-            .about("converts the open-gal source code to the intermediate representation table data")
-            .args(&[
-                Arg::new("open-gal code")
-                    .required(true)
-                    .about("this is your open-gal sorce code"),
-                Arg::new("table data json")
-                    .required(true)
-                    .about("is an  intermediate representation"),
-                Arg::new("gal type")
-                    .required(false)
-                    .about("the path to your gal type json file"),    
-                ]
-            ),
-    ).subcommand(
-        App::new("td2jedec")
-            .about("converts the intermediate representation table data to a jedec file")
-            .args(&[
-                Arg::new("table data json")
-                    .required(true)
-                    .about("is an  intermediate representation"),
-                Arg::new("jedec filename")
-                    .required(true)
-                    .about("the name of your jedec file"),
-                Arg::new("gal type")
-                    .required(true)
-                    .about("the path to your gal type json file"),    
-                ]
-            ),
-    ).subcommand(
-        App::new("code2jedec")
-            .about("converts the open-gal source code to a jedec file")
-            .args(&[
-                Arg::new("open-gal code")
-                    .required(true)
-                    .about("this is your open-gal sorce code"),
-                Arg::new("jedec filename")
-                    .required(true)
-                    .about("the name of your jedec file"),
-                Arg::new("gal type")
-                    .required(true)
-                    .about("the path to your gal type json file"),
-            ])
-   );
+#[derive(Parser)]
+#[command(
+    name = "open-gal",
+    version = "0.1.0",
+    author = "Elias <maierelias13@gmail.com>",
+    about = "open-gal is a hardware description language for generic array logic chips (GAL)",
+    subcommand_required = true
+)]
+struct App {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    let matches = app.get_matches();
-    match matches.subcommand() {
-        Some(("code2td", arg_m)) => {
-            let code_file = match arg_m.value_of("open-gal code") {
-                Some(value) => value,
-                None => panic!("<open-gal code> is required"),
-            };
-            let td_name = match arg_m.value_of("table data json") {
-                Some(value) => value,
-                None => panic!("<table data json> is required"),
-            };
-            let config_file = arg_m.value_of("gal type");
+#[derive(Subcommand)]
+enum Commands {
+    /// Converts the open-gal source code to the intermediate representation table data
+    Code2Td {
+        /// This is your open-gal source code
+        code: String,
 
-            match code2td(code_file, td_name, config_file) {
-                Ok(()) => (),
-                Err(e) => panic!("{}", e),
-            }
-        }
-        Some(("td2jedec", arg_m)) => {
-            let td_file = match arg_m.value_of("table data json") {
-                Some(value) => value,
-                None => panic!("<table data json> is required"),
-            };
-            let jedec_name = match arg_m.value_of("jedec filename") {
-                Some(value) => value,
-                None => panic!("<open-gal code> is required"),
-            };
-            let config_file = match arg_m.value_of("gal type") {
-                Some(value) => value,
-                None => panic!("<gal type> is required"),
-            };
+        /// Is an intermediate representation
+        table_data_json: String,
 
-            match td2jedec(td_file, config_file, jedec_name) {
-                Ok(()) => (),
-                Err(e) => panic!("{}", e),
-            }
-        }
-        Some(("code2jedec", arg_m)) => {
-            let code_file = match arg_m.value_of("open-gal code") {
-                Some(value) => value,
-                None => panic!("<open-gal code> is required"),
-            };
-            let jedec_name = match arg_m.value_of("jedec filename") {
-                Some(value) => value,
-                None => panic!("<open-gal code> is required"),
-            };
-            let config_file = match arg_m.value_of("gal type") {
-                Some(value) => value,
-                None => panic!("<gal type> is required"),
-            };
+        /// The path to your GAL type JSON file
+        gal_type: Option<String>,
+    },
 
-            match code2jedec(code_file, config_file, jedec_name) {
-                Ok(()) => (),
-                Err(e) => panic!("{}", e),
-            }
-        }
-        _ => panic!(
-            "no handle for subcommand available\n Subcommands are: code2td, td2jedec, code2jedec"
-        ),
+    /// Converts the intermediate representation table data to a JEDEC file
+    Td2Jedec {
+        /// Is an intermediate representation
+        table_data_json: String,
+
+        /// The name of your JEDEC file
+        jedec_filename: String,
+
+        /// The path to your GAL type JSON file
+        gal_type: String,
+    },
+
+    /// Converts the open-gal source code to a JEDEC file
+    Code2Jedec {
+        /// This is your open-gal source code
+        code: String,
+
+        /// The name of your JEDEC file
+        jedec_filename: String,
+
+        /// The path to your GAL type JSON file
+        gal_type: String,
+    },
+}
+
+fn main() -> Result<(), String> {
+    let app = App::parse();
+
+    match app.command {
+        Commands::Code2Td {
+            code,
+            table_data_json,
+            gal_type,
+        } => code2td(&code, &table_data_json, gal_type.as_deref()),
+
+        Commands::Td2Jedec {
+            table_data_json,
+            jedec_filename,
+            gal_type,
+        } => td2jedec(&table_data_json, &gal_type, &jedec_filename),
+
+        Commands::Code2Jedec {
+            code,
+            jedec_filename,
+            gal_type,
+        } => code2jedec(&code, &gal_type, &jedec_filename),
     }
 }
 
 fn code2td(code_file: &str, td_name: &str, config_file: Option<&str>) -> Result<(), String> {
-    let mut data = Vec::new();
-    let file = match File::open(code_file) {
-        Ok(file) => file,
-        Err(_) => return Err(format!("unable to read source code files {}", code_file)),
-    };
-    let reader = BufReader::new(file);
+    let mut file = File::open(code_file)
+        .map_err(|_| format!("unable to read source code file {}", code_file))?;
+    let mut code = String::new();
+    file.read_to_string(&mut code)
+        .map_err(|err| format!("{err:?}"))?;
 
-    for (i, line) in reader.lines().into_iter().enumerate() {
-        let temp = match line {
-            Ok(value) => value.clone(),
-            Err(_) => return Err(format!("unable to read line {} in file {}", i, code_file)),
-        };
-        data.push(temp);
-    }
-
-    let table_data = open_gal::parse(data.iter().map(|s| &**s).collect())?;
+    let table_data = open_gal::parse(&code)?;
 
     if let Some(config_file) = config_file {
-        let json = read_json(config_file);
-        let config = match circuit_config_from_json(&json) {
-            Some(value) => value,
-            None => return Err(format!("couldn't read json of file {}", config_file)),
-        };
+        let config = fs::read_to_string(&config_file)
+            .map_err(|_| format!("unable to read file {}", config_file))?;
+        let config: CircuitConfig = serde_json::from_str::<CircuitConfigWrapper>(&config)
+            .map_err(|err| format!("couldn't read json of file {config_file}. Error: {err:?}",))?
+            .try_into()
+            .map_err(|err| format!("could not map to struct Error: {err:?}"))?;
 
-        for td in table_data.clone() {
+        for td in table_data.iter() {
             td.valid(&config)?;
         }
     }
 
-    let json = td_to_json_vec(&table_data);
-
-    let data = match serde_json::to_string(&json) {
-        Ok(value) => value,
-        Err(_) => return Err(format!("unable to covert tabel data to json")),
-    };
-
-    match fs::write(td_name, data) {
-        Ok(()) => Ok(()),
-        Err(_) => Err(format!(
-            "unable write tabal data file (file name {})",
-            td_name
-        )),
+    let mut tds: Vec<TableDataWrapper> = Vec::new();
+    for td in table_data {
+        let td: TableDataWrapper = TableDataWrapper {
+            enable_flip_flop: td.enable_flip_flop,
+            input_pins: td.input_pins,
+            output_pin: td.output_pin,
+            table: td.table,
+        };
+        tds.push(td);
     }
+
+    let json = serde_json::to_string_pretty(&tds)
+        .map_err(|_| format!("unable to covert table data to json"))?;
+
+    fs::write("output.json", json)
+        .map_err(|_| format!("unable write table data file (file name {})", td_name))?;
+
+    return Ok(());
 }
 
 fn td2jedec(td_file: &str, config_file: &str, jedec_name: &str) -> Result<(), String> {
-    let json = read_json(td_file);
-    let table_data = match td_from_json_vec(&json) {
-        Some(value) => value,
-        None => return Err(format!("couldn't read json of file {}", td_file)),
-    };
+    let json_data = fs::read_to_string(td_file).map_err(|err| format!("{err:?}"))?;
+    let table_data: Vec<TableDataWrapper> = serde_json::from_str(&json_data)
+        .map_err(|_| format!("couldn't read json of file {}", td_file))?;
 
-    let json = read_json(config_file);
-    let config = match circuit_config_from_json(&json) {
-        Some(value) => value,
-        None => return Err(format!("couldn't read json of file {}", config_file)),
-    };
+    let config = fs::read_to_string(&config_file)
+        .map_err(|_| format!("unable to read file {}", config_file))?;
+    let config: CircuitConfig = serde_json::from_str::<CircuitConfigWrapper>(&config)
+        .map_err(|err| format!("couldn't read json of file {config_file}. Error: {err:?}",))?
+        .try_into()
+        .map_err(|err| format!("could not map to struct Error: {err:?}"))?;
 
-    let jedec = open_gal::to_jedec(&table_data, &config)?;
-    match fs::write(jedec_name, jedec) {
-        Ok(()) => Ok(()),
-        Err(_) => Err(format!(
-            "Unable write jedec file (file name {})",
-            jedec_name
-        )),
+    let mut truth_tables = Vec::new();
+
+    for td in table_data {
+        let td: TableData = td.try_into().map_err(|err| format!("{err:?}"))?;
+        truth_tables.push(td);
     }
+
+    let jedec = open_gal::to_jedec(&truth_tables, &config, None)?;
+
+    fs::write(jedec_name, jedec)
+        .map_err(|_| format!("Unable write jedec file (file name {})", jedec_name))?;
+
+    return Ok(());
 }
 
 fn code2jedec(code_file: &str, config_file: &str, jedec_name: &str) -> Result<(), String> {
-    let json = read_json(config_file);
-    let config = match circuit_config_from_json(&json) {
-        Some(value) => value,
-        None => return Err(format!("couldn't read json of file {}", config_file)),
-    };
+    let config = fs::read_to_string(&config_file)
+        .map_err(|_| format!("unable to read file {}", config_file))?;
+    let config: CircuitConfig = serde_json::from_str::<CircuitConfigWrapper>(&config)
+        .map_err(|err| format!("couldn't read json of file {config_file}. Error: {err:?}",))?
+        .try_into()
+        .map_err(|err| format!("could not map to struct Error: {err:?}"))?;
 
-    let mut data = Vec::new();
-    let file = match File::open(code_file) {
-        Ok(file) => file,
-        Err(_) => return Err(format!("unable to read source code files {}", code_file)),
-    };
-    let reader = BufReader::new(file);
+    let mut file = File::open(code_file)
+        .map_err(|_| format!("unable to read source code file {}", code_file))?;
+    let mut code = String::new();
+    file.read_to_string(&mut code)
+        .map_err(|err| format!("{err:?}"))?;
 
-    for (i, line) in reader.lines().into_iter().enumerate() {
-        let temp = match line {
-            Ok(value) => value.clone(),
-            Err(_) => return Err(format!("unable to read line {} in file {}", i, code_file)),
-        };
-        data.push(temp);
-    }
-
-    let table_data = open_gal::parse(data.iter().map(|s| &**s).collect::<Vec<_>>())?;
+    let table_data = open_gal::parse(&code)?;
 
     let jedec = open_gal::to_jedec(&table_data, &config, None)?;
     match fs::write(jedec_name, jedec) {

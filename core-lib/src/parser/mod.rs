@@ -358,7 +358,7 @@ fn get_bool(num: String) -> Result<Vec<bool>, String> {
 }
 
 pub fn ogal2td(o_gal: OGal) -> Result<Vec<TableData>, Error> {
-    use hardware_sim::Component;
+    // use hardware_sim::Component;
     let mut td_vec = Vec::with_capacity(o_gal.lut.len());
 
     for lut in o_gal.lut {
