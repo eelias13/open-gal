@@ -3,9 +3,11 @@ FROM rust:slim-bullseye
 RUN cargo install wasm-pack
 RUN cargo install minifier
 
-WORKDIR /usr/src/app
+WORKDIR /build
 
 COPY . .
+
+WORKDIR /build/editor
 
 RUN cd rust && wasm-pack build --target no-modules --no-typescript --release && cd ..
 RUN mkdir build

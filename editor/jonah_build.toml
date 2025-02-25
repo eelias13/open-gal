@@ -1,2 +1,0 @@
-docker = "./Dockerfile"
-exports = [{ path = "/usr/src/app/build/", name = "." }]

@@ -38,6 +38,8 @@ WORKDIR /build
 # Copy the project files
 COPY . .
 
+WORKDIR /build/cli
+
 # Ensure dependencies are downloaded
 RUN cargo fetch
 
