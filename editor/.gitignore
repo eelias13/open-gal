@@ -1,3 +1,5 @@
 /rust/target
 /rust/pkg
 /build
+/web/wasm_loader.js
+/web/rust_bg.wasm

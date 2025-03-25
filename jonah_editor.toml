@@ -1,2 +1,2 @@
 docker = "./dockerfile_editor"
-exports = [{ path = "/build/editor/build/", name = "open-gal" }]
+exports = [{ path = "/build/editor/web/", name = "open-gal" }]
