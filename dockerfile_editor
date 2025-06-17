@@ -9,7 +9,7 @@ COPY . .
 WORKDIR /build/editor
 
 RUN cd rust && wasm-pack build --target no-modules --no-typescript --release
-RUN cp rust/pkg/rust_bg.wasm web/rust_bg.wasm
-RUN cp rust/pkg/rust.js web/wasm_loader.js
+# RUN cp rust/pkg/rust_bg.wasm web/rust_bg.wasm
+# RUN cp rust/pkg/rust.js web/wasm_loader.js
 
 CMD ["bash"]
