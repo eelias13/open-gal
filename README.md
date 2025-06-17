@@ -6,7 +6,7 @@
 
 ## Web Editor
 
-OpenGAL includes a web editor that you can try out [here](https://eelias13.github.io/projects/open-gal/).
+OpenGAL includes a web editor that you can try out [here](https://elias-2001-de.github.io/projects/open-gal/).
 
 - The **Download Code** button saves the code you've written.
 - The **Compile** button compiles your code into a JEDEC file, ready to be flashed onto a GAL chip.

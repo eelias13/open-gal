@@ -11,11 +11,6 @@ checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 [[package]]
 name = "bool-algebra"
 version = "0.1.0"
-source = "git+https://github.com/eelias13/bool-algebra#a2ad65288a28322b2009817e822d9c7203964216"
-
-[[package]]
-name = "bool-algebra"
-version = "0.1.0"
 source = "git+https://github.com/elias-2001-de/bool-algebra#a2ad65288a28322b2009817e822d9c7203964216"
 
 [[package]]
@@ -27,14 +22,14 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "graph"
 version = "0.1.0"
-source = "git+https://github.com/eelias13/graph#ba41127fae628864f07aa623b921457e990ce96b"
+source = "git+https://github.com/elias-2001-de/graph#ba41127fae628864f07aa623b921457e990ce96b"
 
 [[package]]
 name = "hardware-sim"
 version = "0.1.0"
-source = "git+https://github.com/elias-2001-de/hardware-sim#ca839b9b983753f85f42d12698035f893dca2aec"
+source = "git+https://github.com/elias-2001-de/hardware-sim#abacb8ecf61acaa3f82327f7f7a11ed1e6d94d3a"
 dependencies = [
- "bool-algebra 0.1.0 (git+https://github.com/eelias13/bool-algebra)",
+ "bool-algebra",
  "graph",
 ]
 
@@ -65,7 +60,7 @@ dependencies = [
 name = "open-gal"
 version = "0.1.0"
 dependencies = [
- "bool-algebra 0.1.0 (git+https://github.com/elias-2001-de/bool-algebra)",
+ "bool-algebra",
  "hardware-sim",
  "logos",
  "serde",
