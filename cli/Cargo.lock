@@ -64,6 +64,11 @@ version = "0.1.0"
 source = "git+https://github.com/eelias13/bool-algebra#a2ad65288a28322b2009817e822d9c7203964216"
 
 [[package]]
+name = "bool-algebra"
+version = "0.1.0"
+source = "git+https://github.com/elias-2001-de/bool-algebra#a2ad65288a28322b2009817e822d9c7203964216"
+
+[[package]]
 name = "clap"
 version = "4.5.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,9 +138,9 @@ source = "git+https://github.com/eelias13/graph#ba41127fae628864f07aa623b921457e
 [[package]]
 name = "hardware-sim"
 version = "0.1.0"
-source = "git+https://github.com/eelias13/hardware-sim#ca839b9b983753f85f42d12698035f893dca2aec"
+source = "git+https://github.com/elias-2001-de/hardware-sim#ca839b9b983753f85f42d12698035f893dca2aec"
 dependencies = [
- "bool-algebra",
+ "bool-algebra 0.1.0 (git+https://github.com/eelias13/bool-algebra)",
  "graph",
 ]
 
@@ -190,7 +195,7 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 name = "open-gal"
 version = "0.1.0"
 dependencies = [
- "bool-algebra",
+ "bool-algebra 0.1.0 (git+https://github.com/elias-2001-de/bool-algebra)",
  "hardware-sim",
  "logos",
  "serde",
@@ -289,7 +294,7 @@ dependencies = [
 [[package]]
 name = "tokenizer"
 version = "0.1.0"
-source = "git+https://github.com/eelias13/tokenizer#6e47110a5faeb82e9f0f61a0fe87fb447fd6b790"
+source = "git+https://github.com/elias-2001-de/tokenizer#6e47110a5faeb82e9f0f61a0fe87fb447fd6b790"
 dependencies = [
  "logos",
 ]
