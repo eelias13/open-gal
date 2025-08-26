@@ -134,3 +134,22 @@ Here are some examples of how to use these features:
   ```
   table(i[0..1] -> and, or, xor) { ... }
   ```
+
+
+
+## Build with jonah the web editor
+
+```bash
+curl -L -o jonah https://github.com/elias-2001-de/jonah/releases/download/v0.1.8/jonah
+chmod +x jonah
+./jonah project jonah_editor.toml dist
+```
+
+then start the server
+
+```bash
+cd dist
+python3 -m http.server
+```
+
+and go to [http://0.0.0.0:8000/open-gal/](http://0.0.0.0:8000/open-gal/)

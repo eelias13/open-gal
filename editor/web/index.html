@@ -8,8 +8,8 @@
 
     <script src="wasm_loader.js"></script>
     <script src="script.js"></script>
-    <script src="monaco/vs/loader.js"></script>
-    <link rel="stylesheet" href="monaco/vs/editor/editor.main.css">
+    <script src="/assets/monaco/vs/loader.js"></script>
+    <link rel="stylesheet" href="/assets/monaco/vs/editor/editor.main.css">
     <script>
         async function init() {
             await wasm_bindgen("rust_bg.wasm");
@@ -29,8 +29,8 @@
             let commands;
 
             // setup editor
-            window.require.config({ paths: { 'vs': 'monaco/vs' } });
-            window.MonacoEnvironment = { getWorkerUrl: () => 'monaco/vs/base/worker/workerMain.js' };
+            window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
+            window.MonacoEnvironment = { getWorkerUrl: () => '/assets/monaco/vs/base/worker/workerMain.js' };
 
             window.require(['vs/editor/editor.main'], function () {
                 let editor = setup_editor(monaco, document.getElementById('editor'));
@@ -97,7 +97,7 @@
     <style>
         @font-face {
             font-family: 'Codicon';
-            src: url('monaco/vs/base/browser/ui/codicons/codicon/codicon.ttf') format('truetype');
+            src: url('/assets/monaco/vs/base/browser/ui/codicons/codicon/codicon.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
         }

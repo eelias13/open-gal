@@ -1,2 +1,9 @@
 docker = "./dockerfile_editor"
-exports = [{ path = "/build/editor/web/", name = "open-gal" }]
+exports = [
+    { path = "/build/editor/web/index.html", name = "open-gal/index.html" },
+    { path = "/build/editor/web/rust_bg.wasm", name = "open-gal/rust_bg.wasm" },
+    { path = "/build/editor/web/script.js", name = "open-gal/script.js" },
+    { path = "/build/editor/web/wasm_loader.js", name = "open-gal/wasm_loader.js" },
+    { path = "/build/editor/web/assets", name = "assets/" },
+]
+create_host_dirs = ["open-gal"]

@@ -1,4 +1,4 @@
-FROM rust:slim-bullseye
+FROM rust:1.89-slim
 
 RUN cargo install wasm-pack
 
